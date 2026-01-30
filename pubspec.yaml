@@ -1,0 +1,37 @@
+name: flutter_markdown_widget
+description: "High-performance streaming Markdown widget for Flutter with LaTeX support, virtual scrolling, and AI-friendly streaming rendering."
+version: 0.1.0
+homepage: https://github.com/user/flutter_markdown_widget
+
+environment:
+  sdk: ^3.9.2
+  flutter: ">=3.24.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  # Markdown parsing
+  markdown: ^7.3.0
+  # Path utilities
+  path: ^1.9.1
+  # Meta annotations
+  meta: ^1.16.0
+  # LaTeX rendering
+  flutter_math_fork: ^0.7.3
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  # Assets can be added here later for themes
+  # assets:
+  #   - assets/themes/
+
+topics:
+  - markdown
+  - streaming
+  - latex
+  - ai
+  - chatgpt
