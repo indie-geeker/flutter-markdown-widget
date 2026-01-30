@@ -15,6 +15,9 @@ class TocDemoPage extends StatefulWidget {
 class _TocDemoPageState extends State<TocDemoPage> {
   // This is all you need for TOC functionality!
   final _tocController = TocController();
+  
+  // Toggle for jump animation mode
+  bool _syncTocDuringJump = false;
 
   @override
   void dispose() {
@@ -137,7 +140,8 @@ Thank you for reading! You're now ready to build amazing markdown experiences.
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
+        backgroundColor: Colors.white,
+        scrolledUnderElevation: 0,
         elevation: 0,
         leading: IconButton(
           icon: Container(
@@ -211,10 +215,43 @@ Thank you for reading! You're now ready to build amazing markdown experiences.
                         ),
                       ),
                       const SizedBox(width: 12),
-                      Text(
-                        'Contents',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
+                      Expanded(
+                        child: Text(
+                          'Contents',
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // Toggle for jump animation mode
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Transition Effect',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: isDark ? Colors.grey[400] : Colors.grey[600],
+                          ),
+                        ),
+                      ),
+                      Transform.scale(
+                        scale: 0.8,
+                        child: Switch(
+                          value: _syncTocDuringJump,
+                          activeTrackColor: const Color(0xFF10B981).withValues(alpha: 0.5),
+                          activeThumbColor: const Color(0xFF10B981),
+                          onChanged: (value) {
+                            setState(() {
+                              _syncTocDuringJump = value;
+                              _tocController.syncTocDuringJump = value;
+                            });
+                          },
                         ),
                       ),
                     ],
