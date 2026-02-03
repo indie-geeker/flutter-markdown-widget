@@ -81,6 +81,63 @@ void main() {}
       expect(find.byType(StreamingMarkdownView), findsOneWidget);
     });
 
+    testWidgets('uses parser factory when provided', (tester) async {
+      final blocks = [
+        const ContentBlock(
+          type: ContentBlockType.paragraph,
+          rawContent: 'From factory',
+          contentHash: 1,
+          startLine: 0,
+          endLine: 0,
+        ),
+      ];
+
+      final options = RenderOptions(
+        parserFactory: (_) => _StubParser(blocks),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: StreamingMarkdownView(
+              content: 'Ignored content',
+              renderOptions: options,
+            ),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      expect(find.text('From factory'), findsOneWidget);
+    });
+
+    testWidgets('respects buffer mode byLine', (tester) async {
+      final controller = StreamController<String>();
+      addTearDown(controller.close);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: StreamingMarkdownView.fromStream(
+              stream: controller.stream,
+              streamingOptions: const StreamingOptions(
+                bufferMode: BufferMode.byLine,
+              ),
+            ),
+          ),
+        ),
+      );
+
+      controller.add('Hello');
+      await tester.pump(const Duration(milliseconds: 20));
+      expect(find.text('Hello'), findsNothing);
+
+      controller.add('\n');
+      await tester.pump(const Duration(milliseconds: 20));
+      expect(find.text('Hello'), findsOneWidget);
+    });
+
     testWidgets('shows typing cursor when configured', (tester) async {
       // Test typing cursor by using static content first
       await tester.pumpWidget(
@@ -134,6 +191,23 @@ void main() {}
 
       // LaTeX should be rendered as plain text when disabled
       expect(find.textContaining('E = mc^2'), findsOneWidget);
+    });
+
+    testWidgets('renders inline image placeholder when disabled', (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            body: StreamingMarkdownView(
+              content: 'Image: ![Alt](https://example.com/image.png)',
+              renderOptions: RenderOptions(enableImageLoading: false),
+            ),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('[Image: Alt]'), findsOneWidget);
     });
   });
 
@@ -279,4 +353,32 @@ void main() {}
       expect(find.byType(TypingCursor), findsOneWidget);
     });
   });
+}
+
+class _StubParser implements MarkdownParser {
+  _StubParser(this._blocks);
+
+  List<ContentBlock> _blocks;
+
+  @override
+  List<ContentBlock> get cachedBlocks => List.unmodifiable(_blocks);
+
+  @override
+  ParseResult parse(String text, {bool isStreaming = false}) {
+    return ParseResult(
+      blocks: _blocks,
+      modifiedIndices: _blocks.isEmpty ? const <int>{} : {0},
+    );
+  }
+
+  @override
+  void reset() {
+    _blocks = [];
+  }
+
+  @override
+  void invalidate(int index) {}
+
+  @override
+  void invalidateFrom(int startIndex) {}
 }

@@ -187,11 +187,18 @@ class _TocListWidgetState extends State<TocListWidget> {
       fontWeight: FontWeight.w600,
     );
 
-    return Material(
-      color: isActive ? activeBackground : Colors.transparent,
-      child: InkWell(
-        onTap: () => controller.jumpToWidgetIndex(entry.blockIndex),
-        child: Padding(
+    const animationDuration = Duration(milliseconds: 200);
+    const animationCurve = Curves.easeOutCubic;
+
+    return GestureDetector(
+      onTap: () => controller.jumpToWidgetIndex(entry.blockIndex),
+      behavior: HitTestBehavior.opaque,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: AnimatedContainer(
+          duration: animationDuration,
+          curve: animationCurve,
+          color: isActive ? activeBackground : Colors.transparent,
           padding: EdgeInsets.only(
             left: 12 + (entry.level - 1) * widget.indentPerLevel,
             right: 12,
@@ -200,22 +207,28 @@ class _TocListWidgetState extends State<TocListWidget> {
           ),
           child: Row(
             children: [
-              if (isActive)
-                Container(
-                  width: 3,
-                  height: 16,
-                  margin: const EdgeInsets.only(right: 8),
-                  decoration: BoxDecoration(
-                    color: activeColor,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
+              // Animated indicator bar
+              AnimatedContainer(
+                duration: animationDuration,
+                curve: animationCurve,
+                width: isActive ? 3 : 0,
+                height: 16,
+                margin: EdgeInsets.only(right: isActive ? 8 : 0),
+                decoration: BoxDecoration(
+                  color: isActive ? activeColor : Colors.transparent,
+                  borderRadius: BorderRadius.circular(2),
                 ),
+              ),
               Expanded(
-                child: Text(
-                  entry.title,
+                child: AnimatedDefaultTextStyle(
+                  duration: animationDuration,
+                  curve: animationCurve,
                   style: isActive ? activeStyle : baseStyle,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
+                  child: Text(
+                    entry.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
               ),
             ],

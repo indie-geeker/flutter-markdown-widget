@@ -29,6 +29,15 @@ typedef TocListCallback = void Function(List<TocEntry> list);
 ///
 /// Widget buildMarkdown() => MarkdownWidget(data: data, tocController: tocController);
 /// ```
+///
+/// Configuration:
+/// ```dart
+/// // Show transition effect (TOC highlights intermediate headings during scroll)
+/// tocController.syncTocDuringJump = true;
+///
+/// // Direct jump (TOC jumps directly to target, default behavior)
+/// tocController.syncTocDuringJump = false;
+/// ```
 class TocController {
   /// Maps the widget index in the markdown tree to the corresponding TOC item
   final LinkedHashMap<int, TocEntry> _widgetIndex2TocItem = LinkedHashMap();
@@ -47,6 +56,16 @@ class TocController {
 
   /// Current active heading index
   int _currentIndex = -1;
+
+  /// Flag indicating whether a programmatic jump is in progress
+  /// When true, scroll-based index updates should be ignored
+  bool _isJumping = false;
+
+  /// Whether to sync TOC highlights with scroll position during jumps.
+  ///
+  /// - `true`: TOC highlights intermediate headings as content scrolls (transition effect)
+  /// - `false`: TOC jumps directly to target heading without intermediate highlights (default)
+  bool syncTocDuringJump = false;
 
   /// Returns the current list of TOC items.
   List<TocEntry> get tocList => List.unmodifiable(_widgetIndex2TocItem.values);
@@ -104,12 +123,33 @@ class TocController {
   }
 
   /// Scrolls the markdown content to the heading at the specified widget index.
+  /// 
+  /// During the jump, scroll-based index updates are suppressed to prevent
+  /// TOC from highlighting intermediate headings (unless [syncTocDuringJump] is true).
   void jumpToWidgetIndex(int widgetIndex) {
     if (_isDisposed) return;
-    _currentIndex = widgetIndex;
+    _isJumping = true;
+    
+    // Only update index immediately if NOT in sync mode
+    // In sync mode, let the scroll listener handle the gradual updates
+    if (!syncTocDuringJump) {
+      _currentIndex = widgetIndex;
+      notifyIndexChanged(widgetIndex);
+    }
+    
     _jumpToWidgetIndexCallback?.call(widgetIndex);
-    notifyIndexChanged(widgetIndex);
   }
+
+  /// Called when jump animation completes to re-enable scroll sync
+  void onJumpComplete() {
+    _isJumping = false;
+  }
+
+  /// Whether a programmatic jump is currently in progress.
+  /// 
+  /// When true, scroll-based TOC updates are suppressed.
+  /// In [syncTocDuringJump] mode, Timer handles sequential highlighting instead.
+  bool get isJumping => _isJumping;
 
   /// Notifies all listeners that the current heading index has changed.
   void notifyIndexChanged(int widgetIndex) {

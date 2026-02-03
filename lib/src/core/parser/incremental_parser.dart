@@ -5,48 +5,39 @@
 import 'package:markdown/markdown.dart' as md;
 
 import 'content_block.dart';
-
-/// Result of incremental parsing.
-class ParseResult {
-  /// Creates a parse result.
-  const ParseResult({
-    required this.blocks,
-    required this.modifiedIndices,
-    this.incompleteBlock,
-  });
-
-  /// All parsed blocks.
-  final List<ContentBlock> blocks;
-
-  /// Indices of blocks that changed since last parse.
-  final Set<int> modifiedIndices;
-
-  /// Trailing incomplete block during streaming.
-  final IncompleteBlock? incompleteBlock;
-
-  /// Whether any blocks were modified.
-  bool get hasChanges => modifiedIndices.isNotEmpty;
-}
+import 'markdown_parser.dart';
 
 /// Incremental Markdown parser with caching support.
 ///
 /// Parses Markdown text into content blocks, tracking changes
 /// between updates for efficient re-rendering.
-class IncrementalMarkdownParser {
+class IncrementalMarkdownParser implements MarkdownParser {
   /// Creates an incremental parser with optional configuration.
   IncrementalMarkdownParser({
     this.enableLatex = true,
     List<md.BlockSyntax>? customBlockSyntaxes,
     List<md.InlineSyntax>? customInlineSyntaxes,
   }) {
+    _customBlockSyntaxes = List.unmodifiable(customBlockSyntaxes ?? const []);
+    _customInlineSyntaxes = List.unmodifiable(customInlineSyntaxes ?? const []);
     _blockSyntaxes = [
-      ...?customBlockSyntaxes,
+      ..._customBlockSyntaxes,
       if (enableLatex) _LatexBlockSyntax(),
     ];
     _inlineSyntaxes = [
-      ...?customInlineSyntaxes,
+      ..._customInlineSyntaxes,
       if (enableLatex) _LatexInlineSyntax(),
     ];
+    if (_customBlockSyntaxes.isNotEmpty || _customInlineSyntaxes.isNotEmpty) {
+      _customDocument = md.Document(
+        extensionSet: md.ExtensionSet.gitHubFlavored,
+        encodeHtml: false,
+        blockSyntaxes:
+            _customBlockSyntaxes.isEmpty ? null : _customBlockSyntaxes,
+        inlineSyntaxes:
+            _customInlineSyntaxes.isEmpty ? null : _customInlineSyntaxes,
+      );
+    }
   }
 
   /// Whether LaTeX parsing is enabled.
@@ -54,6 +45,9 @@ class IncrementalMarkdownParser {
 
   late final List<md.BlockSyntax> _blockSyntaxes;
   late final List<md.InlineSyntax> _inlineSyntaxes;
+  late final List<md.BlockSyntax> _customBlockSyntaxes;
+  late final List<md.InlineSyntax> _customInlineSyntaxes;
+  md.Document? _customDocument;
 
   /// Cache of previously parsed blocks.
   final List<ContentBlock> _cachedBlocks = [];
@@ -276,8 +270,18 @@ class IncrementalMarkdownParser {
   }
 
   ContentBlock _parseBlock(_RawBlock rawBlock, int index) {
-    final type = _detectBlockType(rawBlock);
+    var type = _detectBlockType(rawBlock);
     final metadata = <String, dynamic>{};
+
+    if (type == ContentBlockType.paragraph && _customDocument != null) {
+      final customInfo = _tryParseCustomBlock(rawBlock);
+      if (customInfo != null) {
+        type = ContentBlockType.htmlBlock;
+        metadata['tag'] = customInfo.tag;
+        metadata['text'] = customInfo.textContent;
+        metadata['attributes'] = customInfo.attributes;
+      }
+    }
 
     String? language;
     int? headingLevel;
@@ -340,6 +344,11 @@ class IncrementalMarkdownParser {
       return ContentBlockType.blockquote;
     }
 
+    // Image (standalone line)
+    if (RegExp(r'^!\[[^\]]*\]\([^)]+\)$').hasMatch(content)) {
+      return ContentBlockType.image;
+    }
+
     // Unordered list
     if (RegExp(r'^[\s]*[-*+]\s').hasMatch(content)) {
       return ContentBlockType.unorderedList;
@@ -356,6 +365,50 @@ class IncrementalMarkdownParser {
     }
 
     return ContentBlockType.paragraph;
+  }
+
+  _CustomBlockInfo? _tryParseCustomBlock(_RawBlock rawBlock) {
+    if (_customDocument == null || _customBlockSyntaxes.isEmpty) return null;
+    final lines = rawBlock.content.split('\n');
+    final nodes = _customDocument!.parseLines(lines);
+    if (nodes.length != 1) return null;
+    final node = nodes.first;
+    if (node is! md.Element) return null;
+    final tag = node.tag;
+    if (_isBuiltInTag(tag)) return null;
+
+    return _CustomBlockInfo(
+      tag: tag,
+      textContent: node.textContent,
+      attributes: Map<String, String>.from(node.attributes),
+    );
+  }
+
+  bool _isBuiltInTag(String tag) {
+    const builtInTags = {
+      'p',
+      'h1',
+      'h2',
+      'h3',
+      'h4',
+      'h5',
+      'h6',
+      'pre',
+      'code',
+      'blockquote',
+      'ul',
+      'ol',
+      'li',
+      'table',
+      'thead',
+      'tbody',
+      'tr',
+      'td',
+      'th',
+      'hr',
+      'img',
+    };
+    return builtInTags.contains(tag);
   }
 
   bool _isIncompleteBlock(String content, ContentBlockType type) {
@@ -408,6 +461,18 @@ class _RawBlock {
   final String content;
   final int startLine;
   final int endLine;
+}
+
+class _CustomBlockInfo {
+  const _CustomBlockInfo({
+    required this.tag,
+    required this.textContent,
+    required this.attributes,
+  });
+
+  final String tag;
+  final String textContent;
+  final Map<String, String> attributes;
 }
 
 /// Custom block syntax for LaTeX blocks ($$...$$).

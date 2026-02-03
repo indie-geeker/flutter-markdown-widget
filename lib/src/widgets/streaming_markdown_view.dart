@@ -7,6 +7,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../core/parser/content_block.dart';
+import '../core/parser/markdown_parser.dart';
 import '../core/parser/incremental_parser.dart';
 import '../core/parser/text_buffer.dart';
 import '../core/cache/widget_cache.dart';
@@ -84,7 +85,7 @@ class StreamingMarkdownView extends StatefulWidget {
 }
 
 class _StreamingMarkdownViewState extends State<StreamingMarkdownView> {
-  late IncrementalMarkdownParser _parser;
+  late MarkdownParser _parser;
   late ContentBuilder _builder;
   late WidgetRenderCache _cache;
   late TextChunkBuffer _buffer;
@@ -100,9 +101,7 @@ class _StreamingMarkdownViewState extends State<StreamingMarkdownView> {
   @override
   void initState() {
     super.initState();
-    _parser = IncrementalMarkdownParser(
-      enableLatex: widget.renderOptions.enableLatex,
-    );
+    _parser = _createParser();
     _builder = ContentBuilder(
       theme: widget.theme,
       renderOptions: widget.renderOptions,
@@ -125,11 +124,16 @@ class _StreamingMarkdownViewState extends State<StreamingMarkdownView> {
     // Update builder if options changed
     if (widget.renderOptions != oldWidget.renderOptions ||
         widget.theme != oldWidget.theme) {
+      _parser = _createParser();
       _builder = ContentBuilder(
         theme: widget.theme,
         renderOptions: widget.renderOptions,
       );
       _cache.clear();
+      // Re-parse current content with updated options.
+      final currentContent =
+          widget.isStreaming ? _buffer.content : widget.content;
+      _parseContent(currentContent);
     }
 
     // Handle content changes
@@ -158,16 +162,44 @@ class _StreamingMarkdownViewState extends State<StreamingMarkdownView> {
 
   void _onStreamData(String chunk) {
     _buffer.append(chunk);
-    _scheduleUpdate();
+    _handleBuffering(chunk);
   }
 
-  void _scheduleUpdate() {
+  void _handleBuffering(String chunk) {
+    final mode = widget.streamingOptions.bufferMode;
+
+    switch (mode) {
+      case BufferMode.byLine:
+        if (chunk.contains('\n')) {
+          _scheduleUpdate();
+        }
+        break;
+      case BufferMode.byCharacter:
+        _scheduleUpdate();
+        break;
+      case BufferMode.byInterval:
+        _scheduleUpdate(immediate: false);
+        break;
+      case BufferMode.byBlock:
+        final hasIncomplete = _buffer.hasIncompleteBlock();
+        if (!hasIncomplete || widget.streamingOptions.renderIncompleteBlocks) {
+          _scheduleUpdate();
+        }
+        break;
+    }
+  }
+
+  void _scheduleUpdate({bool immediate = true}) {
     if (_throttleTimer?.isActive == true) {
       _pendingContent = _buffer.content;
       return;
     }
 
-    _performUpdate();
+    if (immediate) {
+      _performUpdate();
+    } else {
+      _pendingContent = _buffer.content;
+    }
 
     _throttleTimer = Timer(
       Duration(milliseconds: widget.streamingOptions.throttleMs),
@@ -224,6 +256,18 @@ class _StreamingMarkdownViewState extends State<StreamingMarkdownView> {
     }
   }
 
+  MarkdownParser _createParser() {
+    final factory = widget.renderOptions.parserFactory;
+    if (factory != null) {
+      return factory(widget.renderOptions);
+    }
+    return IncrementalMarkdownParser(
+      enableLatex: widget.renderOptions.enableLatex,
+      customBlockSyntaxes: widget.renderOptions.customBlockSyntaxes,
+      customInlineSyntaxes: widget.renderOptions.customInlineSyntaxes,
+    );
+  }
+
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
@@ -268,13 +312,18 @@ class _StreamingMarkdownViewState extends State<StreamingMarkdownView> {
     final useVirtualScroll = widget.renderOptions.enableVirtualScrolling &&
         _blocks.length > widget.renderOptions.virtualScrollThreshold;
 
+    final displayBlocks = _displayBlocks;
+    final incompleteIndex = _incompleteDisplayIndex;
+
     if (useVirtualScroll) {
       return VirtualMarkdownList(
-        blocks: _blocks,
+        blocks: displayBlocks,
         theme: theme,
         renderOptions: widget.renderOptions,
         controller: _scrollController,
         padding: widget.padding,
+        fadedIndex: incompleteIndex,
+        fadedOpacity: widget.streamingOptions.incompleteBlockOpacity,
       );
     }
 
@@ -284,25 +333,68 @@ class _StreamingMarkdownViewState extends State<StreamingMarkdownView> {
       physics: widget.physics,
       padding: widget.padding,
       shrinkWrap: widget.shrinkWrap,
-      itemCount: _blocks.length + (_showCursor ? 1 : 0),
+      itemCount: displayBlocks.length + (_showCursor ? 1 : 0),
       itemBuilder: (context, index) {
         // Typing cursor at the end
-        if (index == _blocks.length && _showCursor) {
+        if (index == displayBlocks.length && _showCursor) {
           return _buildCursorRow(context);
         }
 
-        final block = _blocks[index];
-        return _cache.getOrBuild(
+        final block = displayBlocks[index];
+        final built = _cache.getOrBuild(
           index,
           block.contentHash,
           () => _builder.buildBlock(context, block),
         );
+
+        if (incompleteIndex != null && index == incompleteIndex) {
+          return Opacity(
+            opacity: widget.streamingOptions.incompleteBlockOpacity,
+            child: built,
+          );
+        }
+
+        return built;
       },
     );
   }
 
   bool get _showCursor =>
       _isReceiving && widget.streamingOptions.showTypingCursor;
+
+  bool get _shouldRenderIncomplete =>
+      widget.streamingOptions.renderIncompleteBlocks &&
+      _incompleteBlock != null;
+
+  int? get _incompleteDisplayIndex =>
+      _shouldRenderIncomplete ? _blocks.length : null;
+
+  List<ContentBlock> get _displayBlocks {
+    if (!_shouldRenderIncomplete) {
+      return _blocks;
+    }
+    return [..._blocks, _createIncompleteDisplayBlock(_incompleteBlock!)];
+  }
+
+  ContentBlock _createIncompleteDisplayBlock(IncompleteBlock incomplete) {
+    final startLine = _blocks.isNotEmpty ? _blocks.last.endLine + 1 : 0;
+    final lineCount = incomplete.partialContent.split('\n').length;
+    final endLine = startLine + lineCount - 1;
+
+    final type = switch (incomplete.expectedType) {
+      ContentBlockType.latexBlock => ContentBlockType.paragraph,
+      _ => incomplete.expectedType,
+    };
+
+    return ContentBlock(
+      type: type,
+      rawContent: incomplete.partialContent,
+      contentHash:
+          Object.hash(incomplete.partialContent, incomplete.expectedType),
+      startLine: startLine,
+      endLine: endLine,
+    );
+  }
 
   Widget _buildCursorRow(BuildContext context) {
     return Padding(

@@ -4,6 +4,7 @@
 
 import 'package:flutter_markdown_widget/flutter_markdown_widget.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:markdown/markdown.dart' as md;
 
 void main() {
   group('IncrementalMarkdownParser', () {
@@ -162,6 +163,29 @@ $$''');
       });
     });
 
+    group('image parsing', () {
+      test('parses standalone image block', () {
+        final result = parser.parse('![Alt](https://example.com/image.png)');
+        expect(result.blocks, hasLength(1));
+        expect(result.blocks[0].type, ContentBlockType.image);
+      });
+    });
+
+    group('custom syntax parsing', () {
+      test('parses custom block syntax into metadata', () {
+        final customParser = IncrementalMarkdownParser(
+          customBlockSyntaxes: [_NoteBlockSyntax()],
+        );
+
+        final result = customParser.parse(':::note This is a note');
+
+        expect(result.blocks, hasLength(1));
+        expect(result.blocks[0].type, ContentBlockType.htmlBlock);
+        expect(result.blocks[0].metadata['tag'], 'note');
+        expect(result.blocks[0].metadata['text'], 'This is a note');
+      });
+    });
+
     group('horizontal rule parsing', () {
       test('parses horizontal rule with dashes', () {
         final result = parser.parse('---');
@@ -229,4 +253,20 @@ $$''');
       });
     });
   });
+}
+
+class _NoteBlockSyntax extends md.BlockSyntax {
+  @override
+  RegExp get pattern => RegExp(r'^:::note\s+(.+)$');
+
+  @override
+  md.Node? parse(md.BlockParser parser) {
+    final match = pattern.firstMatch(parser.current.content);
+    if (match == null) {
+      return null;
+    }
+    final text = match.group(1)?.trim() ?? '';
+    parser.advance();
+    return md.Element('note', [md.Text(text)]);
+  }
 }

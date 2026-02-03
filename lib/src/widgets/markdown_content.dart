@@ -5,6 +5,7 @@
 import 'package:flutter/material.dart';
 
 import '../core/parser/content_block.dart';
+import '../core/parser/markdown_parser.dart';
 import '../core/parser/incremental_parser.dart';
 import '../core/cache/widget_cache.dart';
 import '../builder/content_builder.dart';
@@ -42,7 +43,7 @@ class MarkdownContent extends StatefulWidget {
 }
 
 class _MarkdownContentState extends State<MarkdownContent> {
-  late IncrementalMarkdownParser _parser;
+  late MarkdownParser _parser;
   late ContentBuilder _builder;
   late WidgetRenderCache _cache;
   List<ContentBlock> _blocks = [];
@@ -50,9 +51,7 @@ class _MarkdownContentState extends State<MarkdownContent> {
   @override
   void initState() {
     super.initState();
-    _parser = IncrementalMarkdownParser(
-      enableLatex: widget.renderOptions.enableLatex,
-    );
+    _parser = _createParser();
     _builder = ContentBuilder(
       theme: widget.theme,
       renderOptions: widget.renderOptions,
@@ -66,6 +65,7 @@ class _MarkdownContentState extends State<MarkdownContent> {
     super.didUpdateWidget(oldWidget);
     if (widget.content != oldWidget.content ||
         widget.renderOptions != oldWidget.renderOptions) {
+      _parser = _createParser();
       _builder = ContentBuilder(
         theme: widget.theme,
         renderOptions: widget.renderOptions,
@@ -87,6 +87,18 @@ class _MarkdownContentState extends State<MarkdownContent> {
       _cache.invalidate(index);
     }
     widget.onBlocksGenerated?.call(_blocks);
+  }
+
+  MarkdownParser _createParser() {
+    final factory = widget.renderOptions.parserFactory;
+    if (factory != null) {
+      return factory(widget.renderOptions);
+    }
+    return IncrementalMarkdownParser(
+      enableLatex: widget.renderOptions.enableLatex,
+      customBlockSyntaxes: widget.renderOptions.customBlockSyntaxes,
+      customInlineSyntaxes: widget.renderOptions.customInlineSyntaxes,
+    );
   }
 
   @override

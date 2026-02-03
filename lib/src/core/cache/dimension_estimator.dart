@@ -66,6 +66,11 @@ class BlockDimensionEstimator {
     _measuredHeights[contentHash] = height;
   }
 
+  /// Returns a previously recorded height for a block, if available.
+  double? getActualHeight(int contentHash) {
+    return _measuredHeights[contentHash];
+  }
+
   /// Clears measured height cache.
   void clearMeasurements() {
     _measuredHeights.clear();

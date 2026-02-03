@@ -2,9 +2,13 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 
 import '../core/parser/content_block.dart';
+import '../core/parser/markdown_parser.dart';
 import '../core/parser/incremental_parser.dart';
 import '../core/cache/widget_cache.dart';
 import '../builder/content_builder.dart';
@@ -46,7 +50,6 @@ class MarkdownWidget extends StatefulWidget {
     this.padding,
     this.physics,
     this.shrinkWrap = false,
-    this.controller,
   });
 
   /// The markdown content to render.
@@ -67,7 +70,7 @@ class MarkdownWidget extends StatefulWidget {
   final TocController? tocController;
 
   /// Padding around the content.
-  final EdgeInsetsGeometry? padding;
+  final EdgeInsets? padding;
 
   /// Scroll physics.
   final ScrollPhysics? physics;
@@ -75,33 +78,33 @@ class MarkdownWidget extends StatefulWidget {
   /// Whether to shrink wrap the content.
   final bool shrinkWrap;
 
-  /// Optional scroll controller.
-  final ScrollController? controller;
-
   @override
   State<MarkdownWidget> createState() => _MarkdownWidgetState();
 }
 
 class _MarkdownWidgetState extends State<MarkdownWidget> {
-  late IncrementalMarkdownParser _parser;
+  late MarkdownParser _parser;
   late ContentBuilder _builder;
   late WidgetRenderCache _cache;
-  late ScrollController _scrollController;
+  
+  /// Controller for jumping to specific items by index
+  final ItemScrollController _itemScrollController = ItemScrollController();
+  
+  /// Listener for tracking visible items (used for TOC sync)
+  final ItemPositionsListener _itemPositionsListener = ItemPositionsListener.create();
+  
+  /// Timer for sequential TOC highlighting during jump transitions
+  Timer? _transitionTimer;
+  
   List<ContentBlock> _blocks = [];
-  final Map<int, GlobalKey> _blockKeys = {};
   final TocGenerator _tocGenerator = TocGenerator(
     config: const TocConfig(buildHierarchy: false),
   );
 
-  bool get _hasExternalScrollController => widget.controller != null;
-
   @override
   void initState() {
     super.initState();
-    _scrollController = widget.controller ?? ScrollController();
-    _parser = IncrementalMarkdownParser(
-      enableLatex: widget.renderOptions.enableLatex,
-    );
+    _parser = _createParser();
     _builder = ContentBuilder(
       theme: widget.theme,
       renderOptions: widget.renderOptions,
@@ -109,10 +112,75 @@ class _MarkdownWidgetState extends State<MarkdownWidget> {
     _cache = WidgetRenderCache();
     _parseContent();
     _setupTocController();
+    _setupScrollListener();
   }
 
   void _setupTocController() {
     widget.tocController?.jumpToWidgetIndexCallback = _jumpToIndex;
+  }
+
+  void _setupScrollListener() {
+    // Listen to visible items and update TOC current index
+    _itemPositionsListener.itemPositions.addListener(_onVisibleItemsChanged);
+  }
+
+  void _onVisibleItemsChanged() {
+    if (widget.tocController == null) return;
+    
+    // Skip scroll-based updates while a programmatic jump is in progress
+    if (widget.tocController!.isJumping) return;
+    
+    final positions = _itemPositionsListener.itemPositions.value;
+    if (positions.isEmpty) return;
+
+    const double topThreshold = 0.15;
+    int? closestBelowIndex;
+    double closestBelowEdge = double.infinity;
+    int? closestAboveIndex;
+    double closestAboveEdge = double.negativeInfinity;
+
+    for (final position in positions) {
+      final block = _blocks[position.index];
+      if (block.type != ContentBlockType.heading) continue;
+
+      // itemLeadingEdge: 0 = at top, negative = above viewport, positive = below top
+      final edge = position.itemLeadingEdge;
+      if (edge >= 0 && edge <= topThreshold) {
+        if (edge < closestBelowEdge) {
+          closestBelowEdge = edge;
+          closestBelowIndex = position.index;
+        }
+      } else if (edge < 0) {
+        if (edge > closestAboveEdge) {
+          closestAboveEdge = edge;
+          closestAboveIndex = position.index;
+        }
+      }
+    }
+
+    // Prefer the heading at/just below the top, if available.
+    if (closestBelowIndex != null) {
+      widget.tocController!.notifyIndexChanged(closestBelowIndex);
+      return;
+    }
+
+    // Otherwise, use the closest visible heading above the top.
+    if (closestAboveIndex != null) {
+      widget.tocController!.notifyIndexChanged(closestAboveIndex);
+      return;
+    }
+
+    // Otherwise, find the nearest heading above the first visible item
+    final sortedPositions = positions.toList()
+      ..sort((a, b) => a.index.compareTo(b.index));
+    final firstVisibleIndex = sortedPositions.first.index;
+    
+    for (int i = firstVisibleIndex; i >= 0; i--) {
+      if (_blocks[i].type == ContentBlockType.heading) {
+        widget.tocController!.notifyIndexChanged(i);
+        return;
+      }
+    }
   }
 
   @override
@@ -120,6 +188,7 @@ class _MarkdownWidgetState extends State<MarkdownWidget> {
     super.didUpdateWidget(oldWidget);
     if (widget.data != oldWidget.data ||
         widget.renderOptions != oldWidget.renderOptions) {
+      _parser = _createParser();
       _builder = ContentBuilder(
         theme: widget.theme,
         renderOptions: widget.renderOptions,
@@ -133,25 +202,11 @@ class _MarkdownWidgetState extends State<MarkdownWidget> {
       oldWidget.tocController?.jumpToWidgetIndexCallback = null;
       _setupTocController();
     }
-    if (widget.controller != oldWidget.controller) {
-      if (!_hasExternalScrollController) {
-        _scrollController.dispose();
-      }
-      _scrollController = widget.controller ?? ScrollController();
-    }
   }
 
   void _parseContent() {
     final result = _parser.parse(widget.data);
     _blocks = result.blocks;
-    
-    // Generate keys for heading blocks
-    _blockKeys.clear();
-    for (int i = 0; i < _blocks.length; i++) {
-      if (_blocks[i].type == ContentBlockType.heading) {
-        _blockKeys[i] = GlobalKey();
-      }
-    }
 
     // Invalidate changed blocks in cache
     for (final index in result.modifiedIndices) {
@@ -174,25 +229,108 @@ class _MarkdownWidgetState extends State<MarkdownWidget> {
     }
   }
 
-  void _jumpToIndex(int blockIndex) {
-    final key = _blockKeys[blockIndex];
-    if (key?.currentContext != null) {
-      Scrollable.ensureVisible(
-        key!.currentContext!,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-        alignment: 0.1,
-      );
+  MarkdownParser _createParser() {
+    final factory = widget.renderOptions.parserFactory;
+    if (factory != null) {
+      return factory(widget.renderOptions);
     }
+    return IncrementalMarkdownParser(
+      enableLatex: widget.renderOptions.enableLatex,
+      customBlockSyntaxes: widget.renderOptions.customBlockSyntaxes,
+      customInlineSyntaxes: widget.renderOptions.customInlineSyntaxes,
+    );
+  }
+
+  void _jumpToIndex(int blockIndex) {
+    if (!_itemScrollController.isAttached) return;
+    if (blockIndex < 0 || blockIndex >= _blocks.length) return;
+
+    // Cancel any existing transition timer
+    _transitionTimer?.cancel();
+
+    final isSyncMode = widget.tocController?.syncTocDuringJump ?? false;
+    final currentIndex = widget.tocController?.currentIndex ?? 0;
+    
+    Duration scrollDuration;
+    Curve scrollCurve;
+    
+    if (isSyncMode) {
+      // Collect all headings between current and target
+      final headingIndices = _collectHeadingsBetween(currentIndex, blockIndex);
+      final headingCount = headingIndices.length;
+      
+      // 100ms per heading, minimum 200ms, maximum 1500ms
+      final calculatedMs = headingCount * 60;
+      scrollDuration = Duration(milliseconds: calculatedMs.clamp(200, 1500));
+      scrollCurve = Curves.linear;
+      
+      // Start sequential highlighting animation
+      if (headingIndices.isNotEmpty) {
+        _startTransitionAnimation(headingIndices, scrollDuration);
+      }
+    } else {
+      // Direct jump mode
+      scrollDuration = const Duration(milliseconds: 300);
+      scrollCurve = Curves.easeInOut;
+    }
+
+    _itemScrollController.scrollTo(
+      index: blockIndex,
+      duration: scrollDuration,
+      curve: scrollCurve,
+      alignment: 0.1,
+    ).then((_) {
+      _transitionTimer?.cancel();
+      widget.tocController?.notifyIndexChanged(blockIndex);
+      widget.tocController?.onJumpComplete();
+    });
+  }
+
+  /// Collects heading indices between [fromIndex] and [toIndex] in scroll order.
+  List<int> _collectHeadingsBetween(int fromIndex, int toIndex) {
+    final List<int> headingIndices = [];
+    final isForward = toIndex > fromIndex;
+    
+    if (isForward) {
+      for (int i = fromIndex + 1; i <= toIndex; i++) {
+        if (_blocks[i].type == ContentBlockType.heading) {
+          headingIndices.add(i);
+        }
+      }
+    } else {
+      for (int i = fromIndex - 1; i >= toIndex; i--) {
+        if (_blocks[i].type == ContentBlockType.heading) {
+          headingIndices.add(i);
+        }
+      }
+    }
+    return headingIndices;
+  }
+
+  /// Starts a timer that highlights each heading in [headingIndices] sequentially.
+  void _startTransitionAnimation(List<int> headingIndices, Duration totalDuration) {
+    final delayPerHeading = totalDuration.inMilliseconds ~/ headingIndices.length;
+    int currentStep = 0;
+    
+    _transitionTimer = Timer.periodic(
+      Duration(milliseconds: delayPerHeading),
+      (timer) {
+        if (currentStep >= headingIndices.length || !mounted) {
+          timer.cancel();
+          return;
+        }
+        widget.tocController?.notifyIndexChanged(headingIndices[currentStep]);
+        currentStep++;
+      },
+    );
   }
 
   @override
   void dispose() {
+    _transitionTimer?.cancel();
     widget.tocController?.jumpToWidgetIndexCallback = null;
+    _itemPositionsListener.itemPositions.removeListener(_onVisibleItemsChanged);
     _cache.clear();
-    if (!_hasExternalScrollController) {
-      _scrollController.dispose();
-    }
     super.dispose();
   }
 
@@ -211,28 +349,20 @@ class _MarkdownWidgetState extends State<MarkdownWidget> {
 
     return MarkdownThemeProvider(
       theme: effectiveTheme,
-      child: ListView.builder(
-        controller: _scrollController,
+      child: ScrollablePositionedList.builder(
+        itemScrollController: _itemScrollController,
+        itemPositionsListener: _itemPositionsListener,
         padding: widget.padding,
         physics: widget.physics,
         shrinkWrap: widget.shrinkWrap,
         itemCount: _blocks.length,
         itemBuilder: (context, index) {
           final block = _blocks[index];
-          final widget = _cache.getOrBuild(
+          return _cache.getOrBuild(
             index,
             block.contentHash,
             () => _builder.buildBlock(context, block),
           );
-
-          // Wrap heading blocks with GlobalKey for scroll-to functionality
-          if (_blockKeys.containsKey(index)) {
-            return Container(
-              key: _blockKeys[index],
-              child: widget,
-            );
-          }
-          return widget;
         },
       ),
     );

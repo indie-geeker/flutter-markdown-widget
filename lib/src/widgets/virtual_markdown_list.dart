@@ -6,7 +6,6 @@ import 'package:flutter/material.dart';
 
 import '../core/parser/content_block.dart';
 import '../core/cache/widget_cache.dart';
-import '../core/cache/dimension_estimator.dart';
 import '../builder/content_builder.dart';
 import '../style/markdown_theme.dart';
 import '../config/render_options.dart';
@@ -24,6 +23,8 @@ class VirtualMarkdownList extends StatefulWidget {
     this.controller,
     this.padding,
     this.cacheExtent,
+    this.fadedIndex,
+    this.fadedOpacity,
   });
 
   /// Parsed content blocks to render.
@@ -44,6 +45,12 @@ class VirtualMarkdownList extends StatefulWidget {
   /// Cache extent for off-screen items.
   final double? cacheExtent;
 
+  /// Optional index to render with reduced opacity (e.g., incomplete block).
+  final int? fadedIndex;
+
+  /// Opacity value to apply to the faded index.
+  final double? fadedOpacity;
+
   @override
   State<VirtualMarkdownList> createState() => _VirtualMarkdownListState();
 }
@@ -51,7 +58,6 @@ class VirtualMarkdownList extends StatefulWidget {
 class _VirtualMarkdownListState extends State<VirtualMarkdownList> {
   late ContentBuilder _builder;
   late WidgetRenderCache _cache;
-  late BlockDimensionEstimator _estimator;
 
   @override
   void initState() {
@@ -61,7 +67,6 @@ class _VirtualMarkdownListState extends State<VirtualMarkdownList> {
       renderOptions: widget.renderOptions,
     );
     _cache = WidgetRenderCache();
-    _estimator = BlockDimensionEstimator();
   }
 
   @override
@@ -148,8 +153,11 @@ class _VirtualMarkdownListState extends State<VirtualMarkdownList> {
             block: block,
             builder: _builder,
             cache: _cache,
-            estimator: _estimator,
             index: index,
+            isFaded: widget.fadedIndex != null &&
+                widget.fadedIndex == index &&
+                widget.fadedOpacity != null,
+            fadedOpacity: widget.fadedOpacity ?? 1.0,
           );
         },
         childCount: widget.blocks.length,
@@ -158,57 +166,39 @@ class _VirtualMarkdownListState extends State<VirtualMarkdownList> {
   }
 }
 
-class _BlockItemWidget extends StatefulWidget {
+class _BlockItemWidget extends StatelessWidget {
   const _BlockItemWidget({
     super.key,
     required this.block,
     required this.builder,
     required this.cache,
-    required this.estimator,
     required this.index,
+    required this.isFaded,
+    required this.fadedOpacity,
   });
 
   final ContentBlock block;
   final ContentBuilder builder;
   final WidgetRenderCache cache;
-  final BlockDimensionEstimator estimator;
   final int index;
-
-  @override
-  State<_BlockItemWidget> createState() => _BlockItemWidgetState();
-}
-
-class _BlockItemWidgetState extends State<_BlockItemWidget> {
-  final GlobalKey _key = GlobalKey();
-  bool _measured = false;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback(_measureHeight);
-  }
-
-  void _measureHeight(_) {
-    if (_measured) return;
-    final renderBox = _key.currentContext?.findRenderObject() as RenderBox?;
-    if (renderBox != null && renderBox.hasSize) {
-      widget.estimator.recordActualHeight(
-        widget.block.contentHash,
-        renderBox.size.height,
-      );
-      _measured = true;
-    }
-  }
+  final bool isFaded;
+  final double fadedOpacity;
 
   @override
   Widget build(BuildContext context) {
-    return KeyedSubtree(
-      key: _key,
-      child: widget.cache.getOrBuild(
-        widget.index,
-        widget.block.contentHash,
-        () => widget.builder.buildBlock(context, widget.block),
-      ),
+    Widget child = cache.getOrBuild(
+      index,
+      block.contentHash,
+      () => builder.buildBlock(context, block),
     );
+
+    if (isFaded) {
+      child = Opacity(
+        opacity: fadedOpacity.clamp(0.0, 1.0),
+        child: child,
+      );
+    }
+
+    return child;
   }
 }

@@ -31,6 +31,23 @@ class ContentBuilder {
       'table': TableNodeBuilder(),
       ...?customBuilders,
     };
+
+    final inlineSyntaxes = <md.InlineSyntax>[];
+    if (renderOptions.customInlineSyntaxes != null) {
+      inlineSyntaxes.addAll(renderOptions.customInlineSyntaxes!);
+    }
+    if (renderOptions.enableLatex) {
+      inlineSyntaxes.add(_LatexInlineSyntax());
+    }
+    if (renderOptions.enableAutolinks) {
+      inlineSyntaxes.add(_AutoLinkSyntax());
+    }
+
+    _document = md.Document(
+      extensionSet: md.ExtensionSet.gitHubFlavored,
+      encodeHtml: false,
+      inlineSyntaxes: inlineSyntaxes.isEmpty ? null : inlineSyntaxes,
+    );
   }
 
   /// Theme for styling.
@@ -42,13 +59,7 @@ class ContentBuilder {
   late final Map<String, ElementBuilder> _builders;
 
   /// Document for markdown parsing.
-  md.Document get _document => md.Document(
-        extensionSet: md.ExtensionSet.gitHubFlavored,
-        encodeHtml: false,
-        inlineSyntaxes: renderOptions.enableLatex 
-            ? [_LatexInlineSyntax()]
-            : null,
-      );
+  late final md.Document _document;
 
   /// Builds a widget for a content block.
   Widget buildBlock(BuildContext context, ContentBlock block) {
@@ -67,13 +78,48 @@ class ContentBuilder {
       ContentBlockType.unorderedList => _buildUnorderedList(context, block, effectiveTheme),
       ContentBlockType.orderedList => _buildOrderedList(context, block, effectiveTheme),
       ContentBlockType.listItem => _buildListItem(context, block, effectiveTheme),
-      ContentBlockType.table => _buildTable(context, block, effectiveTheme),
+      ContentBlockType.table => renderOptions.enableTables
+          ? _buildTable(context, block, effectiveTheme)
+          : _buildParagraph(context, block, effectiveTheme),
       ContentBlockType.horizontalRule => _buildHorizontalRule(context, effectiveTheme),
       ContentBlockType.latexBlock => _buildLatexBlock(context, block, effectiveTheme),
       ContentBlockType.image => _buildImage(context, block, effectiveTheme),
       ContentBlockType.thematicBreak => _buildHorizontalRule(context, effectiveTheme),
-      ContentBlockType.htmlBlock => _buildParagraph(context, block, effectiveTheme),
+      ContentBlockType.htmlBlock =>
+          _buildCustomOrHtmlBlock(context, block, effectiveTheme),
     };
+  }
+
+  Widget _buildCustomOrHtmlBlock(
+    BuildContext context,
+    ContentBlock block,
+    MarkdownTheme theme,
+  ) {
+    final tag = block.metadata['tag'];
+    final content =
+        block.metadata['text'] is String ? block.metadata['text'] as String : null;
+    final attributes =
+        block.metadata['attributes'] is Map ? block.metadata['attributes'] as Map : null;
+
+    if (tag is String && _builders.containsKey(tag)) {
+      final builder = _builders[tag]!;
+      final attrs = <String, String>{};
+      if (attributes != null) {
+        for (final entry in attributes.entries) {
+          if (entry.key is String && entry.value is String) {
+            attrs[entry.key as String] = entry.value as String;
+          }
+        }
+      }
+      return builder.buildWithAttributes(
+        context,
+        content ?? block.rawContent,
+        theme,
+        attrs,
+      );
+    }
+
+    return _buildParagraph(context, block, theme);
   }
 
   /// Builds a list of widgets from content blocks.
@@ -87,7 +133,12 @@ class ContentBuilder {
     MarkdownTheme theme,
   ) {
     final text = block.rawContent.trim();
-    final inlineSpan = _buildInlineSpan(context, text, theme);
+    final inlineSpan = _buildInlineSpan(
+      context,
+      text,
+      theme,
+      baseStyle: theme.textStyle,
+    );
 
     return Padding(
       padding: EdgeInsets.only(bottom: theme.paragraphSpacing ?? 16),
@@ -105,11 +156,11 @@ class ContentBuilder {
     final level = block.headingLevel ?? 1;
     final text = block.rawContent.replaceFirst(RegExp(r'^#{1,6}\s+'), '').trim();
     final style = theme.headingStyle(level);
-    final inlineSpan = _buildInlineSpan(context, text, theme);
-    // Apply heading style as base style
-    final styledSpan = TextSpan(
-      style: style,
-      children: [inlineSpan],
+    final inlineSpan = _buildInlineSpan(
+      context,
+      text,
+      theme,
+      baseStyle: style ?? theme.textStyle,
     );
 
     return Padding(
@@ -118,8 +169,8 @@ class ContentBuilder {
         bottom: (theme.headingSpacing ?? 24) / 2,
       ),
       child: renderOptions.selectableText
-          ? SelectableText.rich(styledSpan)
-          : RichText(text: styledSpan),
+          ? SelectableText.rich(inlineSpan)
+          : RichText(text: inlineSpan),
     );
   }
 
@@ -137,6 +188,10 @@ class ContentBuilder {
       onCopy: renderOptions.onCodeCopy != null
           ? (code) => renderOptions.onCodeCopy!(code, block.language)
           : null,
+      showLineNumbers: renderOptions.enableCodeHighlight,
+      showLanguageLabel: renderOptions.enableCodeHighlight,
+      showCopyButton: renderOptions.enableCodeHighlight,
+      maxHeight: renderOptions.codeBlockMaxHeight,
     );
   }
 
@@ -150,11 +205,11 @@ class ContentBuilder {
         .map((line) => line.replaceFirst(RegExp(r'^>\s?'), ''))
         .join('\n')
         .trim();
-    final inlineSpan = _buildInlineSpan(context, text, theme);
-    // Apply blockquote style as base style
-    final styledSpan = TextSpan(
-      style: theme.blockquoteStyle,
-      children: [inlineSpan],
+    final inlineSpan = _buildInlineSpan(
+      context,
+      text,
+      theme,
+      baseStyle: theme.blockquoteStyle ?? theme.textStyle,
     );
 
     return Container(
@@ -171,8 +226,8 @@ class ContentBuilder {
         color: theme.blockquoteBackground,
       ),
       child: renderOptions.selectableText
-          ? SelectableText.rich(styledSpan)
-          : RichText(text: styledSpan),
+          ? SelectableText.rich(inlineSpan)
+          : RichText(text: inlineSpan),
     );
   }
 
@@ -181,13 +236,22 @@ class ContentBuilder {
     ContentBlock block,
     MarkdownTheme theme,
   ) {
-    final items = _parseListItems(block.rawContent, ordered: false);
+    final items = _parseListItems(
+      block.rawContent,
+      ordered: false,
+      enableTaskLists: renderOptions.enableTaskLists,
+    );
     return Padding(
       padding: EdgeInsets.only(bottom: theme.blockSpacing ?? 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: items.map((item) {
-          final inlineSpan = _buildInlineSpan(context, item, theme);
+          final inlineSpan = _buildInlineSpan(
+            context,
+            item.text,
+            theme,
+            baseStyle: theme.textStyle,
+          );
           return Padding(
             padding: EdgeInsets.only(
               left: theme.listIndent ?? 24,
@@ -196,7 +260,11 @@ class ContentBuilder {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('• ', style: theme.listBulletStyle),
+                if (item.isTask) ...[
+                  _buildTaskCheckbox(item.isChecked, theme),
+                  const SizedBox(width: 4),
+                ] else
+                  Text('• ', style: theme.listBulletStyle),
                 Expanded(
                   child: renderOptions.selectableText
                       ? SelectableText.rich(inlineSpan)
@@ -215,13 +283,22 @@ class ContentBuilder {
     ContentBlock block,
     MarkdownTheme theme,
   ) {
-    final items = _parseListItems(block.rawContent, ordered: true);
+    final items = _parseListItems(
+      block.rawContent,
+      ordered: true,
+      enableTaskLists: renderOptions.enableTaskLists,
+    );
     return Padding(
       padding: EdgeInsets.only(bottom: theme.blockSpacing ?? 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: items.asMap().entries.map((entry) {
-          final inlineSpan = _buildInlineSpan(context, entry.value, theme);
+          final inlineSpan = _buildInlineSpan(
+            context,
+            entry.value.text,
+            theme,
+            baseStyle: theme.textStyle,
+          );
           return Padding(
             padding: EdgeInsets.only(
               left: theme.listIndent ?? 24,
@@ -234,6 +311,10 @@ class ContentBuilder {
                   width: 24,
                   child: Text('${entry.key + 1}. ', style: theme.listBulletStyle),
                 ),
+                if (entry.value.isTask) ...[
+                  _buildTaskCheckbox(entry.value.isChecked, theme),
+                  const SizedBox(width: 4),
+                ],
                 Expanded(
                   child: renderOptions.selectableText
                       ? SelectableText.rich(inlineSpan)
@@ -252,8 +333,14 @@ class ContentBuilder {
     ContentBlock block,
     MarkdownTheme theme,
   ) {
-    final text = block.rawContent.replaceFirst(RegExp(r'^[\s]*[-*+\d.]+\s+'), '');
-    final inlineSpan = _buildInlineSpan(context, text, theme);
+    final text =
+        block.rawContent.replaceFirst(RegExp(r'^[\s]*[-*+\d.]+\s+'), '');
+    final inlineSpan = _buildInlineSpan(
+      context,
+      text,
+      theme,
+      baseStyle: theme.textStyle,
+    );
     return Padding(
       padding: EdgeInsets.only(left: theme.listIndent ?? 24, bottom: 4),
       child: renderOptions.selectableText
@@ -345,13 +432,14 @@ class ContentBuilder {
   TextSpan _buildInlineSpan(
     BuildContext context,
     String text,
-    MarkdownTheme theme,
-  ) {
+    MarkdownTheme theme, {
+    TextStyle? baseStyle,
+  }) {
     // Sanitize text to prevent UTF-16 encoding errors during streaming
     final safeText = _sanitizeUtf16(text);
     final nodes = _document.parseInline(safeText);
     return TextSpan(
-      style: theme.textStyle,
+      style: baseStyle ?? theme.textStyle,
       children: _buildInlineChildren(context, nodes, theme),
     );
   }
@@ -424,6 +512,9 @@ class ContentBuilder {
           )
         ];
       case 'code':
+        if (!renderOptions.enableCodeHighlight) {
+          return [TextSpan(text: _sanitizeUtf16(element.textContent))];
+        }
         return [
           TextSpan(
             text: _sanitizeUtf16(element.textContent),
@@ -464,22 +555,117 @@ class ContentBuilder {
           ];
         }
         return [TextSpan(text: _sanitizeUtf16(element.textContent))];
+      case 'img':
+      case 'image':
+        return _buildInlineImage(context, element, theme);
       default:
+        final customBuilder = _builders[element.tag];
+        if (customBuilder != null) {
+          return [
+            WidgetSpan(
+              alignment: PlaceholderAlignment.middle,
+              child: customBuilder.buildWithAttributes(
+                context,
+                element.textContent,
+                theme,
+                element.attributes,
+              ),
+            ),
+          ];
+        }
         return _buildInlineChildren(context, element.children ?? [], theme);
     }
   }
 
-  List<String> _parseListItems(String content, {required bool ordered}) {
+  List<_ListItemData> _parseListItems(
+    String content, {
+    required bool ordered,
+    required bool enableTaskLists,
+  }) {
     final pattern = ordered
         ? RegExp(r'^\s*\d+\.\s+', multiLine: true)
         : RegExp(r'^\s*[-*+]\s+', multiLine: true);
+    final taskPattern = ordered
+        ? RegExp(r'^\s*\d+\.\s+\[( |x|X)\]\s+')
+        : RegExp(r'^\s*[-*+]\s+\[( |x|X)\]\s+');
 
     return content
         .split('\n')
         .where((line) => line.trim().isNotEmpty)
-        .map((line) => line.replaceFirst(pattern, '').trim())
-        .where((item) => item.isNotEmpty)
+        .map((line) {
+          String working = line.trimRight();
+          bool? checked;
+          if (enableTaskLists) {
+            final taskMatch = taskPattern.firstMatch(working);
+            if (taskMatch != null) {
+              checked = taskMatch.group(1)!.toLowerCase() == 'x';
+              working = working.replaceFirst(taskPattern, '');
+            } else {
+              working = working.replaceFirst(pattern, '');
+            }
+          } else {
+            working = working.replaceFirst(pattern, '');
+          }
+          return _ListItemData(
+            text: working.trim(),
+            isChecked: checked,
+          );
+        })
+        .where((item) => item.text.isNotEmpty)
         .toList();
+  }
+
+  Widget _buildTaskCheckbox(bool? isChecked, MarkdownTheme theme) {
+    final color = theme.textStyle?.color ?? Colors.grey;
+    return Icon(
+      isChecked == true ? Icons.check_box : Icons.check_box_outline_blank,
+      size: 18,
+      color: color.withValues(alpha: 0.7),
+    );
+  }
+
+  List<InlineSpan> _buildInlineImage(
+    BuildContext context,
+    md.Element element,
+    MarkdownTheme theme,
+  ) {
+    final src = element.attributes['src'] ?? '';
+    final alt = element.attributes['alt'] ?? '';
+
+    if (!renderOptions.enableImageLoading || src.isEmpty) {
+      return [TextSpan(text: '[Image: $alt]')];
+    }
+
+    Widget image = Image.network(
+      src,
+      fit: BoxFit.contain,
+      errorBuilder: (_, __, ___) => Text('[Failed to load: $alt]'),
+    );
+
+    if (renderOptions.maxImageWidth != null ||
+        renderOptions.maxImageHeight != null) {
+      image = ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: renderOptions.maxImageWidth ?? double.infinity,
+          maxHeight: renderOptions.maxImageHeight ?? double.infinity,
+        ),
+        child: image,
+      );
+    }
+
+    if (renderOptions.onImageTap != null) {
+      image = GestureDetector(
+        onTap: () => renderOptions.onImageTap!(src, alt),
+        child: image,
+      );
+    }
+
+    return [
+      WidgetSpan(
+        alignment: PlaceholderAlignment.middle,
+        child: image,
+      ),
+    ];
   }
 }
 
@@ -487,6 +673,18 @@ class ContentBuilder {
 abstract class ElementBuilder {
   /// Builds a widget for the element.
   Widget build(BuildContext context, String content, MarkdownTheme theme);
+
+  /// Builds a widget with element attributes.
+  ///
+  /// Defaults to [build] if not overridden.
+  Widget buildWithAttributes(
+    BuildContext context,
+    String content,
+    MarkdownTheme theme,
+    Map<String, String> attributes,
+  ) {
+    return build(context, content, theme);
+  }
 }
 
 /// Custom inline syntax for LaTeX ($...$).
@@ -501,3 +699,49 @@ class _LatexInlineSyntax extends md.InlineSyntax {
   }
 }
 
+/// Custom inline syntax for auto-linking bare URLs.
+class _AutoLinkSyntax extends md.InlineSyntax {
+  _AutoLinkSyntax() : super(r'(?:(?:https?|ftp):\/\/|www\.)[^\s<]+');
+
+  @override
+  bool onMatch(md.InlineParser parser, Match match) {
+    final raw = match[0]!;
+    final trimmed = _trimTrailingPunctuation(raw);
+    if (trimmed.isEmpty) {
+      return false;
+    }
+
+    final href = trimmed.startsWith('www.') ? 'https://$trimmed' : trimmed;
+    final element = md.Element('a', [md.Text(trimmed)])
+      ..attributes['href'] = href;
+    parser.addNode(element);
+
+    final trailing = raw.substring(trimmed.length);
+    if (trailing.isNotEmpty) {
+      parser.addNode(md.Text(trailing));
+    }
+
+    return true;
+  }
+
+  String _trimTrailingPunctuation(String text) {
+    const trailingPunctuation = {'.', ',', ';', ':', '!', '?'};
+    var end = text.length;
+    while (end > 0 && trailingPunctuation.contains(text[end - 1])) {
+      end--;
+    }
+    return text.substring(0, end);
+  }
+}
+
+class _ListItemData {
+  const _ListItemData({
+    required this.text,
+    this.isChecked,
+  });
+
+  final String text;
+  final bool? isChecked;
+
+  bool get isTask => isChecked != null;
+}

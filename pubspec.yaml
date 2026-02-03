@@ -18,6 +18,8 @@ dependencies:
   meta: ^1.16.0
   # LaTeX rendering
   flutter_math_fork: ^0.7.3
+  # Scroll to index support for TOC navigation
+  scrollable_positioned_list: ^0.3.8
 
 dev_dependencies:
   flutter_test:

@@ -23,7 +23,7 @@ void main() {
       final result = cache.getOrBuild(0, 12345, () => widget);
 
       expect(result, equals(widget));
-      expect(cache.length, 1);
+      expect(cache.size, 1);
     });
 
     test('returns cached widget on second call', () {
@@ -59,7 +59,7 @@ void main() {
 
       cache.invalidate(1);
 
-      expect(cache.length, 2);
+      expect(cache.size, 2);
     });
 
     test('invalidates from index', () {
@@ -69,7 +69,7 @@ void main() {
 
       cache.invalidateFrom(1);
 
-      expect(cache.length, 1);
+      expect(cache.size, 1);
     });
 
     test('clear removes all', () {
@@ -78,7 +78,7 @@ void main() {
 
       cache.clear();
 
-      expect(cache.length, 0);
+      expect(cache.size, 0);
     });
 
     test('respects max size', () {
@@ -89,7 +89,7 @@ void main() {
       smallCache.getOrBuild(2, 333, () => const Text('C'));
       smallCache.getOrBuild(3, 444, () => const Text('D'));
 
-      expect(smallCache.length, 3);
+      expect(smallCache.size, 3);
     });
   });
 
@@ -162,14 +162,14 @@ void main() {
     });
 
     test('records and uses actual height', () {
-      estimator.recordActualHeight('hash123', 150.0);
+      estimator.recordActualHeight(123, 150.0);
 
-      final recorded = estimator.getActualHeight('hash123');
+      final recorded = estimator.getActualHeight(123);
       expect(recorded, 150.0);
     });
 
     test('returns null for unrecorded hash', () {
-      final height = estimator.getActualHeight('unknown');
+      final height = estimator.getActualHeight(999);
       expect(height, isNull);
     });
   });

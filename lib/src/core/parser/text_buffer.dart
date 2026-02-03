@@ -35,6 +35,11 @@ class TextChunkBuffer {
   /// Whether the buffer has content.
   bool get isNotEmpty => _buffer.isNotEmpty;
 
+  /// Whether the buffer has trailing incomplete content.
+  ///
+  /// This indicates there is remaining text that does not end with a newline.
+  bool get hasIncomplete => getTrailingContent().isNotEmpty;
+
   /// Appends a chunk of text to the buffer.
   void append(String chunk) {
     _buffer.write(chunk);

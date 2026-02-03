@@ -3,6 +3,9 @@
 // found in the LICENSE file.
 
 import 'package:flutter/foundation.dart';
+import 'package:markdown/markdown.dart' as md;
+
+import '../core/parser/markdown_parser.dart';
 
 /// Configuration for markdown rendering behavior.
 @immutable
@@ -18,6 +21,9 @@ class RenderOptions {
     this.enableImageLoading = true,
     this.enableVirtualScrolling = true,
     this.selectableText = true,
+    this.customInlineSyntaxes,
+    this.customBlockSyntaxes,
+    this.parserFactory,
     this.onLinkTap,
     this.onImageTap,
     this.onCodeCopy,
@@ -57,6 +63,15 @@ class RenderOptions {
   /// Whether text can be selected.
   final bool selectableText;
 
+  /// Custom inline markdown syntaxes.
+  final List<md.InlineSyntax>? customInlineSyntaxes;
+
+  /// Custom block markdown syntaxes.
+  final List<md.BlockSyntax>? customBlockSyntaxes;
+
+  /// Optional parser factory for swapping parser implementations.
+  final MarkdownParser Function(RenderOptions options)? parserFactory;
+
   /// Callback when a link is tapped.
   final void Function(String url, String? title)? onLinkTap;
 
@@ -89,6 +104,9 @@ class RenderOptions {
     bool? enableImageLoading,
     bool? enableVirtualScrolling,
     bool? selectableText,
+    List<md.InlineSyntax>? customInlineSyntaxes,
+    List<md.BlockSyntax>? customBlockSyntaxes,
+    MarkdownParser Function(RenderOptions options)? parserFactory,
     void Function(String url, String? title)? onLinkTap,
     void Function(String src, String? alt)? onImageTap,
     void Function(String code, String? language)? onCodeCopy,
@@ -108,6 +126,10 @@ class RenderOptions {
       enableVirtualScrolling:
           enableVirtualScrolling ?? this.enableVirtualScrolling,
       selectableText: selectableText ?? this.selectableText,
+      customInlineSyntaxes:
+          customInlineSyntaxes ?? this.customInlineSyntaxes,
+      customBlockSyntaxes: customBlockSyntaxes ?? this.customBlockSyntaxes,
+      parserFactory: parserFactory ?? this.parserFactory,
       onLinkTap: onLinkTap ?? this.onLinkTap,
       onImageTap: onImageTap ?? this.onImageTap,
       onCodeCopy: onCodeCopy ?? this.onCodeCopy,
