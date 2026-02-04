@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import '../core/parser/content_block.dart';
 import '../core/parser/markdown_parser.dart';
 import '../core/parser/incremental_parser.dart';
+import '../core/parser/ast_markdown_parser.dart';
 import '../core/parser/text_buffer.dart';
 import '../core/cache/widget_cache.dart';
 import '../builder/content_builder.dart';
@@ -33,8 +34,8 @@ class StreamingMarkdownView extends StatefulWidget {
     this.physics,
     this.padding,
     this.shrinkWrap = false,
-  })  : stream = null,
-        isStreaming = false;
+  }) : stream = null,
+       isStreaming = false;
 
   /// Creates a streaming markdown view from a stream.
   const StreamingMarkdownView.fromStream({
@@ -47,8 +48,8 @@ class StreamingMarkdownView extends StatefulWidget {
     this.physics,
     this.padding,
     this.shrinkWrap = false,
-  })  : content = '',
-        isStreaming = true;
+  }) : content = '',
+       isStreaming = true;
 
   /// Static markdown content.
   final String content;
@@ -131,8 +132,9 @@ class _StreamingMarkdownViewState extends State<StreamingMarkdownView> {
       );
       _cache.clear();
       // Re-parse current content with updated options.
-      final currentContent =
-          widget.isStreaming ? _buffer.content : widget.content;
+      final currentContent = widget.isStreaming
+          ? _buffer.content
+          : widget.content;
       _parseContent(currentContent);
     }
 
@@ -235,8 +237,13 @@ class _StreamingMarkdownViewState extends State<StreamingMarkdownView> {
       _isReceiving = false;
       _incompleteBlock = null;
     });
-    // Final parse without streaming mode
-    _parseContent(_buffer.content);
+    if (widget.streamingOptions.finalizeWithAst &&
+        widget.renderOptions.parserMode == ParserMode.ast) {
+      _finalizeWithAst();
+    } else {
+      // Final parse without streaming mode
+      _parseContent(_buffer.content);
+    }
   }
 
   void _onStreamError(Object error) {
@@ -256,10 +263,39 @@ class _StreamingMarkdownViewState extends State<StreamingMarkdownView> {
     }
   }
 
+  void _finalizeWithAst() {
+    final astParser = AstMarkdownParser(
+      enableLatex: widget.renderOptions.enableLatex,
+      enableAutolinks: widget.renderOptions.enableAutolinks,
+      customBlockSyntaxes: widget.renderOptions.customBlockSyntaxes,
+      customInlineSyntaxes: widget.renderOptions.customInlineSyntaxes,
+      extensionSet: widget.renderOptions.extensionSet,
+    );
+    final result = astParser.parse(_buffer.content);
+    setState(() {
+      _parser = astParser;
+      _blocks = result.blocks;
+      _incompleteBlock = null;
+    });
+    for (final index in result.modifiedIndices) {
+      _cache.invalidate(index);
+    }
+  }
+
   MarkdownParser _createParser() {
     final factory = widget.renderOptions.parserFactory;
     if (factory != null) {
       return factory(widget.renderOptions);
+    }
+    if (!widget.isStreaming &&
+        widget.renderOptions.parserMode == ParserMode.ast) {
+      return AstMarkdownParser(
+        enableLatex: widget.renderOptions.enableLatex,
+        enableAutolinks: widget.renderOptions.enableAutolinks,
+        customBlockSyntaxes: widget.renderOptions.customBlockSyntaxes,
+        customInlineSyntaxes: widget.renderOptions.customInlineSyntaxes,
+        extensionSet: widget.renderOptions.extensionSet,
+      );
     }
     return IncrementalMarkdownParser(
       enableLatex: widget.renderOptions.enableLatex,
@@ -297,8 +333,8 @@ class _StreamingMarkdownViewState extends State<StreamingMarkdownView> {
     // Get base theme from context (which provides default styles from Flutter's ThemeData)
     final baseTheme = MarkdownThemeProvider.of(context);
     // Merge user's theme on top of base theme (user overrides take precedence)
-    final effectiveTheme = widget.theme != null 
-        ? baseTheme.merge(widget.theme!) 
+    final effectiveTheme = widget.theme != null
+        ? baseTheme.merge(widget.theme!)
         : baseTheme;
 
     return MarkdownThemeProvider(
@@ -309,7 +345,8 @@ class _StreamingMarkdownViewState extends State<StreamingMarkdownView> {
 
   Widget _buildContent(BuildContext context, MarkdownTheme theme) {
     // Determine if we should use virtual scrolling
-    final useVirtualScroll = widget.renderOptions.enableVirtualScrolling &&
+    final useVirtualScroll =
+        widget.renderOptions.enableVirtualScrolling &&
         _blocks.length > widget.renderOptions.virtualScrollThreshold;
 
     final displayBlocks = _displayBlocks;
@@ -389,8 +426,10 @@ class _StreamingMarkdownViewState extends State<StreamingMarkdownView> {
     return ContentBlock(
       type: type,
       rawContent: incomplete.partialContent,
-      contentHash:
-          Object.hash(incomplete.partialContent, incomplete.expectedType),
+      contentHash: Object.hash(
+        incomplete.partialContent,
+        incomplete.expectedType,
+      ),
       startLine: startLine,
       endLine: endLine,
     );
@@ -401,9 +440,7 @@ class _StreamingMarkdownViewState extends State<StreamingMarkdownView> {
       padding: const EdgeInsets.only(left: 2, bottom: 8),
       child: Row(
         children: [
-          TypingCursor(
-            blinkDuration: widget.streamingOptions.cursorBlinkRate,
-          ),
+          TypingCursor(blinkDuration: widget.streamingOptions.cursorBlinkRate),
         ],
       ),
     );

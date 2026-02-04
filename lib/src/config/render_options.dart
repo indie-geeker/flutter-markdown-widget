@@ -7,11 +7,21 @@ import 'package:markdown/markdown.dart' as md;
 
 import '../core/parser/markdown_parser.dart';
 
+/// Parser mode for markdown rendering.
+enum ParserMode {
+  /// AST-based parsing (recommended for static content).
+  ast,
+
+  /// Incremental parsing (optimized for streaming).
+  incremental,
+}
+
 /// Configuration for markdown rendering behavior.
 @immutable
 class RenderOptions {
   /// Creates render options.
   const RenderOptions({
+    this.parserMode = ParserMode.ast,
     this.enableLatex = true,
     this.enableCodeHighlight = true,
     this.enableTables = true,
@@ -21,6 +31,7 @@ class RenderOptions {
     this.enableImageLoading = true,
     this.enableVirtualScrolling = true,
     this.selectableText = true,
+    this.extensionSet,
     this.customInlineSyntaxes,
     this.customBlockSyntaxes,
     this.parserFactory,
@@ -35,6 +46,9 @@ class RenderOptions {
 
   /// Default render options.
   static const RenderOptions defaultOptions = RenderOptions();
+
+  /// Parser mode (AST or incremental).
+  final ParserMode parserMode;
 
   /// Whether to enable LaTeX math rendering.
   final bool enableLatex;
@@ -62,6 +76,9 @@ class RenderOptions {
 
   /// Whether text can be selected.
   final bool selectableText;
+
+  /// Optional markdown extension set.
+  final md.ExtensionSet? extensionSet;
 
   /// Custom inline markdown syntaxes.
   final List<md.InlineSyntax>? customInlineSyntaxes;
@@ -95,6 +112,7 @@ class RenderOptions {
 
   /// Creates a copy with optional overrides.
   RenderOptions copyWith({
+    ParserMode? parserMode,
     bool? enableLatex,
     bool? enableCodeHighlight,
     bool? enableTables,
@@ -104,6 +122,7 @@ class RenderOptions {
     bool? enableImageLoading,
     bool? enableVirtualScrolling,
     bool? selectableText,
+    md.ExtensionSet? extensionSet,
     List<md.InlineSyntax>? customInlineSyntaxes,
     List<md.BlockSyntax>? customBlockSyntaxes,
     MarkdownParser Function(RenderOptions options)? parserFactory,
@@ -116,6 +135,7 @@ class RenderOptions {
     int? virtualScrollThreshold,
   }) {
     return RenderOptions(
+      parserMode: parserMode ?? this.parserMode,
       enableLatex: enableLatex ?? this.enableLatex,
       enableCodeHighlight: enableCodeHighlight ?? this.enableCodeHighlight,
       enableTables: enableTables ?? this.enableTables,
@@ -126,8 +146,8 @@ class RenderOptions {
       enableVirtualScrolling:
           enableVirtualScrolling ?? this.enableVirtualScrolling,
       selectableText: selectableText ?? this.selectableText,
-      customInlineSyntaxes:
-          customInlineSyntaxes ?? this.customInlineSyntaxes,
+      extensionSet: extensionSet ?? this.extensionSet,
+      customInlineSyntaxes: customInlineSyntaxes ?? this.customInlineSyntaxes,
       customBlockSyntaxes: customBlockSyntaxes ?? this.customBlockSyntaxes,
       parserFactory: parserFactory ?? this.parserFactory,
       onLinkTap: onLinkTap ?? this.onLinkTap,

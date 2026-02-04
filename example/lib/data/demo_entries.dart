@@ -5,6 +5,7 @@
 import 'package:flutter/material.dart';
 
 import '../app/app_theme.dart';
+import '../pages/editor_preview_page.dart';
 import '../pages/feature_showcase_page.dart';
 import '../pages/performance_page.dart';
 import '../pages/streaming_lab_page.dart';
@@ -29,6 +30,14 @@ class DemoEntry {
 }
 
 final List<DemoEntry> demoEntries = [
+  DemoEntry(
+    title: 'Editor Preview',
+    description: 'Split layout with live markdown editing and preview.',
+    icon: Icons.edit_note_rounded,
+    gradient: AppGradients.amber,
+    badges: ['Live Editing', 'Side by Side'],
+    builder: (_) => const EditorPreviewPage(),
+  ),
   DemoEntry(
     title: 'Feature Showcase',
     description: 'GFM, LaTeX, tables, images, and theming in one place.',

@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import '../core/parser/content_block.dart';
 import '../core/parser/markdown_parser.dart';
 import '../core/parser/incremental_parser.dart';
+import '../core/parser/ast_markdown_parser.dart';
 import '../core/cache/widget_cache.dart';
 import '../builder/content_builder.dart';
 import '../style/markdown_theme.dart';
@@ -94,6 +95,15 @@ class _MarkdownContentState extends State<MarkdownContent> {
     if (factory != null) {
       return factory(widget.renderOptions);
     }
+    if (widget.renderOptions.parserMode == ParserMode.ast) {
+      return AstMarkdownParser(
+        enableLatex: widget.renderOptions.enableLatex,
+        enableAutolinks: widget.renderOptions.enableAutolinks,
+        customBlockSyntaxes: widget.renderOptions.customBlockSyntaxes,
+        customInlineSyntaxes: widget.renderOptions.customInlineSyntaxes,
+        extensionSet: widget.renderOptions.extensionSet,
+      );
+    }
     return IncrementalMarkdownParser(
       enableLatex: widget.renderOptions.enableLatex,
       customBlockSyntaxes: widget.renderOptions.customBlockSyntaxes,
@@ -116,8 +126,8 @@ class _MarkdownContentState extends State<MarkdownContent> {
     // Get base theme from context (which provides default styles from Flutter's ThemeData)
     final baseTheme = MarkdownThemeProvider.of(context);
     // Merge user's theme on top of base theme (user overrides take precedence)
-    final effectiveTheme = widget.theme != null 
-        ? baseTheme.merge(widget.theme!) 
+    final effectiveTheme = widget.theme != null
+        ? baseTheme.merge(widget.theme!)
         : baseTheme;
 
     return MarkdownThemeProvider(
@@ -125,8 +135,8 @@ class _MarkdownContentState extends State<MarkdownContent> {
       child: LayoutBuilder(
         builder: (context, constraints) {
           return SizedBox(
-            width: constraints.maxWidth.isFinite 
-                ? constraints.maxWidth 
+            width: constraints.maxWidth.isFinite
+                ? constraints.maxWidth
                 : MediaQuery.of(context).size.width,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

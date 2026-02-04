@@ -6,12 +6,33 @@ import 'package:markdown/markdown.dart' as md;
 
 import 'content_block.dart';
 import 'markdown_parser.dart';
+import 'custom_syntaxes.dart';
 
 /// Incremental Markdown parser with caching support.
 ///
 /// Parses Markdown text into content blocks, tracking changes
 /// between updates for efficient re-rendering.
 class IncrementalMarkdownParser implements MarkdownParser {
+  static final RegExp _codeFenceStart = RegExp(r'^(`{3,}|~{3,})(.*)$');
+  static final RegExp _codeFenceMarker = RegExp(r'^(`{3,}|~{3,})');
+  static final RegExp _latexBlockLine = RegExp(r'^\$\$');
+  static final RegExp _heading = RegExp(r'^#{1,6}\s');
+  static final RegExp _horizontalRule = RegExp(r'^(\*{3,}|-{3,}|_{3,})$');
+  static final RegExp _blockquote = RegExp(r'^>');
+  static final RegExp _unorderedList = RegExp(r'^[\s]*[-*+]\s');
+  static final RegExp _orderedList = RegExp(r'^[\s]*\d+\.\s');
+  static final RegExp _tableRow = RegExp(r'^\|.*\|$', multiLine: true);
+  static final RegExp _imageLine = RegExp(r'^!\[[^\]]*\]\([^)]+\)$');
+  static final RegExp _codeLanguage = RegExp(r'^(`{3,}|~{3,})(\w+)?');
+  static final RegExp _codeFenceMatches = RegExp(
+    r'^(`{3,}|~{3,})',
+    multiLine: true,
+  );
+  static final RegExp _latexFenceMatches = RegExp(r'^\$\$', multiLine: true);
+  static final RegExp _headingPrefix = RegExp(r'^(#{1,6})\s');
+  static final RegExp _listDepth = RegExp(r'^(\s*)[-*+\d]');
+  static final RegExp _openingMarker = RegExp(r'^(`{3,}|~{3,}|\$\$)');
+
   /// Creates an incremental parser with optional configuration.
   IncrementalMarkdownParser({
     this.enableLatex = true,
@@ -22,20 +43,22 @@ class IncrementalMarkdownParser implements MarkdownParser {
     _customInlineSyntaxes = List.unmodifiable(customInlineSyntaxes ?? const []);
     _blockSyntaxes = [
       ..._customBlockSyntaxes,
-      if (enableLatex) _LatexBlockSyntax(),
+      if (enableLatex) LatexBlockSyntax(),
     ];
     _inlineSyntaxes = [
       ..._customInlineSyntaxes,
-      if (enableLatex) _LatexInlineSyntax(),
+      if (enableLatex) LatexInlineSyntax(),
     ];
     if (_customBlockSyntaxes.isNotEmpty || _customInlineSyntaxes.isNotEmpty) {
       _customDocument = md.Document(
         extensionSet: md.ExtensionSet.gitHubFlavored,
         encodeHtml: false,
-        blockSyntaxes:
-            _customBlockSyntaxes.isEmpty ? null : _customBlockSyntaxes,
-        inlineSyntaxes:
-            _customInlineSyntaxes.isEmpty ? null : _customInlineSyntaxes,
+        blockSyntaxes: _customBlockSyntaxes.isEmpty
+            ? null
+            : _customBlockSyntaxes,
+        inlineSyntaxes: _customInlineSyntaxes.isEmpty
+            ? null
+            : _customInlineSyntaxes,
       );
     }
   }
@@ -64,10 +87,7 @@ class IncrementalMarkdownParser implements MarkdownParser {
   /// Parses text and returns result with change information.
   ParseResult parse(String text, {bool isStreaming = false}) {
     if (text == _lastText && !isStreaming) {
-      return ParseResult(
-        blocks: _cachedBlocks,
-        modifiedIndices: const {},
-      );
+      return ParseResult(blocks: _cachedBlocks, modifiedIndices: const {});
     }
 
     final rawBlocks = _splitIntoRawBlocks(text);
@@ -160,16 +180,18 @@ class IncrementalMarkdownParser implements MarkdownParser {
 
       // Handle code block boundaries
       if (!inLatexBlock) {
-        final codeMatch = RegExp(r'^(`{3,}|~{3,})(.*)$').firstMatch(line);
+        final codeMatch = _codeFenceStart.firstMatch(line);
         if (codeMatch != null) {
           if (!inCodeBlock) {
             // Start code block
             if (buffer.isNotEmpty) {
-              blocks.add(_RawBlock(
-                content: buffer.toString(),
-                startLine: startLine,
-                endLine: i - 1,
-              ));
+              blocks.add(
+                _RawBlock(
+                  content: buffer.toString(),
+                  startLine: startLine,
+                  endLine: i - 1,
+                ),
+              );
               buffer.clear();
             }
             inCodeBlock = true;
@@ -180,11 +202,13 @@ class IncrementalMarkdownParser implements MarkdownParser {
           } else if (line.trim().startsWith(codeBlockMarker!.substring(0, 3))) {
             // End code block
             buffer.writeln(line);
-            blocks.add(_RawBlock(
-              content: buffer.toString(),
-              startLine: startLine,
-              endLine: i,
-            ));
+            blocks.add(
+              _RawBlock(
+                content: buffer.toString(),
+                startLine: startLine,
+                endLine: i,
+              ),
+            );
             buffer.clear();
             inCodeBlock = false;
             codeBlockMarker = null;
@@ -199,11 +223,13 @@ class IncrementalMarkdownParser implements MarkdownParser {
         if (line.trim().startsWith(r'$$')) {
           if (!inLatexBlock) {
             if (buffer.isNotEmpty) {
-              blocks.add(_RawBlock(
-                content: buffer.toString(),
-                startLine: startLine,
-                endLine: i - 1,
-              ));
+              blocks.add(
+                _RawBlock(
+                  content: buffer.toString(),
+                  startLine: startLine,
+                  endLine: i - 1,
+                ),
+              );
               buffer.clear();
             }
             inLatexBlock = true;
@@ -211,11 +237,13 @@ class IncrementalMarkdownParser implements MarkdownParser {
             buffer.writeln(line);
             // Check if same line closure
             if (line.trim().length > 2 && line.trim().endsWith(r'$$')) {
-              blocks.add(_RawBlock(
-                content: buffer.toString(),
-                startLine: startLine,
-                endLine: i,
-              ));
+              blocks.add(
+                _RawBlock(
+                  content: buffer.toString(),
+                  startLine: startLine,
+                  endLine: i,
+                ),
+              );
               buffer.clear();
               inLatexBlock = false;
               startLine = i + 1;
@@ -223,11 +251,13 @@ class IncrementalMarkdownParser implements MarkdownParser {
             continue;
           } else {
             buffer.writeln(line);
-            blocks.add(_RawBlock(
-              content: buffer.toString(),
-              startLine: startLine,
-              endLine: i,
-            ));
+            blocks.add(
+              _RawBlock(
+                content: buffer.toString(),
+                startLine: startLine,
+                endLine: i,
+              ),
+            );
             buffer.clear();
             inLatexBlock = false;
             startLine = i + 1;
@@ -242,11 +272,13 @@ class IncrementalMarkdownParser implements MarkdownParser {
       } else {
         // Split on blank lines for paragraphs
         if (line.trim().isEmpty && buffer.isNotEmpty) {
-          blocks.add(_RawBlock(
-            content: buffer.toString(),
-            startLine: startLine,
-            endLine: i - 1,
-          ));
+          blocks.add(
+            _RawBlock(
+              content: buffer.toString(),
+              startLine: startLine,
+              endLine: i - 1,
+            ),
+          );
           buffer.clear();
           startLine = i + 1;
         } else if (line.isNotEmpty || buffer.isNotEmpty) {
@@ -259,11 +291,13 @@ class IncrementalMarkdownParser implements MarkdownParser {
 
     // Handle remaining content
     if (buffer.isNotEmpty) {
-      blocks.add(_RawBlock(
-        content: buffer.toString(),
-        startLine: startLine,
-        endLine: lines.length - 1,
-      ));
+      blocks.add(
+        _RawBlock(
+          content: buffer.toString(),
+          startLine: startLine,
+          endLine: lines.length - 1,
+        ),
+      );
     }
 
     return blocks;
@@ -320,47 +354,47 @@ class IncrementalMarkdownParser implements MarkdownParser {
     final content = rawBlock.content.trim();
 
     // Code block
-    if (RegExp(r'^(`{3,}|~{3,})').hasMatch(content)) {
+    if (_codeFenceMarker.hasMatch(content)) {
       return ContentBlockType.codeBlock;
     }
 
     // LaTeX block
-    if (content.startsWith(r'$$')) {
+    if (_latexBlockLine.hasMatch(content)) {
       return ContentBlockType.latexBlock;
     }
 
     // Heading
-    if (RegExp(r'^#{1,6}\s').hasMatch(content)) {
+    if (_heading.hasMatch(content)) {
       return ContentBlockType.heading;
     }
 
     // Horizontal rule
-    if (RegExp(r'^(\*{3,}|-{3,}|_{3,})$').hasMatch(content)) {
+    if (_horizontalRule.hasMatch(content)) {
       return ContentBlockType.horizontalRule;
     }
 
     // Block quote
-    if (content.startsWith('>')) {
+    if (_blockquote.hasMatch(content)) {
       return ContentBlockType.blockquote;
     }
 
     // Image (standalone line)
-    if (RegExp(r'^!\[[^\]]*\]\([^)]+\)$').hasMatch(content)) {
+    if (_imageLine.hasMatch(content)) {
       return ContentBlockType.image;
     }
 
     // Unordered list
-    if (RegExp(r'^[\s]*[-*+]\s').hasMatch(content)) {
+    if (_unorderedList.hasMatch(content)) {
       return ContentBlockType.unorderedList;
     }
 
     // Ordered list
-    if (RegExp(r'^[\s]*\d+\.\s').hasMatch(content)) {
+    if (_orderedList.hasMatch(content)) {
       return ContentBlockType.orderedList;
     }
 
     // Table (pipe at start of line)
-    if (content.contains('|') && RegExp(r'^\|.*\|$', multiLine: true).hasMatch(content)) {
+    if (content.contains('|') && _tableRow.hasMatch(content)) {
       return ContentBlockType.table;
     }
 
@@ -415,12 +449,10 @@ class IncrementalMarkdownParser implements MarkdownParser {
     content = content.trim();
     switch (type) {
       case ContentBlockType.codeBlock:
-        final fenceMatches =
-            RegExp(r'^(`{3,}|~{3,})', multiLine: true).allMatches(content);
+        final fenceMatches = _codeFenceMatches.allMatches(content);
         return fenceMatches.length.isOdd;
       case ContentBlockType.latexBlock:
-        final dollarMatches =
-            RegExp(r'^\$\$', multiLine: true).allMatches(content);
+        final dollarMatches = _latexFenceMatches.allMatches(content);
         return dollarMatches.length.isOdd;
       default:
         return false;
@@ -428,23 +460,22 @@ class IncrementalMarkdownParser implements MarkdownParser {
   }
 
   String? _getOpeningMarker(_RawBlock rawBlock) {
-    final match =
-        RegExp(r'^(`{3,}|~{3,}|\$\$)').firstMatch(rawBlock.content.trim());
+    final match = _openingMarker.firstMatch(rawBlock.content.trim());
     return match?.group(1);
   }
 
   String? _extractCodeLanguage(String content) {
-    final match = RegExp(r'^(`{3,}|~{3,})(\w+)?').firstMatch(content.trim());
+    final match = _codeLanguage.firstMatch(content.trim());
     return match?.group(2);
   }
 
   int _extractHeadingLevel(String content) {
-    final match = RegExp(r'^(#{1,6})\s').firstMatch(content.trim());
+    final match = _headingPrefix.firstMatch(content.trim());
     return match?.group(1)?.length ?? 1;
   }
 
   int _extractListDepth(String content) {
-    final match = RegExp(r'^(\s*)[-*+\d]').firstMatch(content);
+    final match = _listDepth.firstMatch(content);
     final indent = match?.group(1)?.length ?? 0;
     return indent ~/ 2;
   }
@@ -473,41 +504,4 @@ class _CustomBlockInfo {
   final String tag;
   final String textContent;
   final Map<String, String> attributes;
-}
-
-/// Custom block syntax for LaTeX blocks ($$...$$).
-class _LatexBlockSyntax extends md.BlockSyntax {
-  @override
-  RegExp get pattern => RegExp(r'^\$\$\s*$');
-
-  @override
-  md.Node? parse(md.BlockParser parser) {
-    final buffer = StringBuffer();
-    buffer.writeln(parser.current.content);
-    parser.advance();
-
-    while (!parser.isDone) {
-      final line = parser.current.content;
-      buffer.writeln(line);
-      if (line.trim() == r'$$') {
-        parser.advance();
-        break;
-      }
-      parser.advance();
-    }
-
-    return md.Element('latex_block', [md.Text(buffer.toString())]);
-  }
-}
-
-/// Custom inline syntax for LaTeX ($...$).
-class _LatexInlineSyntax extends md.InlineSyntax {
-  _LatexInlineSyntax() : super(r'\$([^\$]+)\$');
-
-  @override
-  bool onMatch(md.InlineParser parser, Match match) {
-    final latex = match[1]!;
-    parser.addNode(md.Element.text('latex_inline', latex));
-    return true;
-  }
 }

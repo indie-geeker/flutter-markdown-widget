@@ -33,6 +33,8 @@ class _StreamingLabPageState extends State<StreamingLabPage> {
   bool _autoScroll = true;
   bool _renderIncomplete = false;
   bool _enableVirtualScroll = true;
+  bool _finalizeWithAst = true;
+  ParserMode _finalParserMode = ParserMode.ast;
 
   String _accumulated = '';
 
@@ -56,8 +58,7 @@ class _StreamingLabPageState extends State<StreamingLabPage> {
   }
 
   Future<void> _simulateStreaming() async {
-    final chunks = MarkdownSamples.streamingResponse
-        .runes
+    final chunks = MarkdownSamples.streamingResponse.runes
         .map((r) => String.fromCharCode(r))
         .toList();
     final delay = (20 / _speed).round();
@@ -110,11 +111,13 @@ class _StreamingLabPageState extends State<StreamingLabPage> {
       autoScrollToBottom: _autoScroll,
       renderIncompleteBlocks: _renderIncomplete,
       incompleteBlockOpacity: 0.55,
+      finalizeWithAst: _finalizeWithAst,
     );
   }
 
   RenderOptions _renderOptions() {
     return RenderOptions(
+      parserMode: _finalParserMode,
       enableTables: true,
       enableTaskLists: true,
       enableCodeHighlight: true,
@@ -126,7 +129,8 @@ class _StreamingLabPageState extends State<StreamingLabPage> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = ExampleTheme.markdownTheme(context, accent: AppPalette.indigo);
+    final theme =
+        ExampleTheme.markdownTheme(context, accent: AppPalette.indigo);
 
     return Scaffold(
       extendBodyBehindAppBar: true,
@@ -144,7 +148,8 @@ class _StreamingLabPageState extends State<StreamingLabPage> {
                   color: Colors.red.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(Icons.stop_rounded, size: 18, color: Colors.red),
+                child:
+                    const Icon(Icons.stop_rounded, size: 18, color: Colors.red),
               ),
             )
           else if (_accumulated.isNotEmpty)
@@ -300,6 +305,45 @@ class _StreamingLabPageState extends State<StreamingLabPage> {
           title: 'Virtual Scrolling',
           value: _enableVirtualScroll,
           onChanged: (v) => setState(() => _enableVirtualScroll = v),
+        ),
+        const Divider(height: 1),
+        const Padding(
+          padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
+          child: SectionHeader(
+            title: 'Finalization',
+            subtitle:
+                'Control how final output is parsed after stream completion.',
+            icon: Icons.rule_folder_outlined,
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: SegmentedButton<ParserMode>(
+            segments: const [
+              ButtonSegment(
+                value: ParserMode.ast,
+                label: Text('Final AST'),
+              ),
+              ButtonSegment(
+                value: ParserMode.incremental,
+                label: Text('Final Incremental'),
+              ),
+            ],
+            selected: {_finalParserMode},
+            onSelectionChanged: (value) =>
+                setState(() => _finalParserMode = value.first),
+          ),
+        ),
+        OptionSwitchTile(
+          title: 'Finalize With AST',
+          value: _finalizeWithAst,
+          onChanged: (v) {
+            if (_finalParserMode != ParserMode.ast) return;
+            setState(() => _finalizeWithAst = v);
+          },
+          subtitle: _finalParserMode == ParserMode.ast
+              ? 'When enabled, stream completion re-parses with AST.'
+              : 'Only available when final parser mode is AST.',
         ),
       ],
     );

@@ -28,6 +28,7 @@
 // Core exports
 export 'src/core/parser/markdown_parser.dart';
 export 'src/core/parser/incremental_parser.dart';
+export 'src/core/parser/ast_markdown_parser.dart';
 export 'src/core/parser/text_buffer.dart';
 export 'src/core/parser/content_block.dart';
 export 'src/core/cache/widget_cache.dart';

@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 import '../core/parser/content_block.dart';
+import '../core/parser/ast_models.dart';
 
 /// Represents a single entry in the table of contents.
 class TocEntry {
@@ -133,6 +134,22 @@ class TocGenerator {
     for (int i = 0; i < blocks.length; i++) {
       final block = blocks[i];
 
+      if (block.type == ContentBlockType.blockquote &&
+          config.includeBlockquoteHeadings) {
+        final ast = _getAst(block);
+        final children = ast?.children;
+        if (children != null && children.isNotEmpty) {
+          final nested = _extractHeadings(children);
+          for (final entry in nested) {
+            final anchor = config.generateAnchors
+                ? '${config.anchorPrefix}${anchorCount++}'
+                : null;
+            entries.add(entry.copyWith(blockIndex: i, anchor: anchor));
+          }
+        }
+        continue;
+      }
+
       if (block.type != ContentBlockType.heading) {
         continue;
       }
@@ -147,22 +164,22 @@ class TocGenerator {
           ? '${config.anchorPrefix}${anchorCount++}'
           : null;
 
-      entries.add(TocEntry(
-        title: title,
-        level: level,
-        blockIndex: i,
-        anchor: anchor,
-      ));
+      entries.add(
+        TocEntry(title: title, level: level, blockIndex: i, anchor: anchor),
+      );
     }
 
     return entries;
   }
 
+  AstBlockData? _getAst(ContentBlock block) {
+    final ast = block.metadata[kAstDataKey];
+    return ast is AstBlockData ? ast : null;
+  }
+
   String _extractHeadingText(String rawContent) {
     // Remove leading # symbols and whitespace
-    return rawContent
-        .replaceFirst(RegExp(r'^#{1,6}\s+'), '')
-        .trim();
+    return rawContent.replaceFirst(RegExp(r'^#{1,6}\s+'), '').trim();
   }
 
   List<TocEntry> _buildHierarchy(List<TocEntry> flatEntries) {

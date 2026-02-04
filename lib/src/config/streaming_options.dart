@@ -32,6 +32,7 @@ class StreamingOptions {
     this.incompleteBlockOpacity = 0.5,
     this.autoScrollToBottom = true,
     this.scrollAnimationDuration = const Duration(milliseconds: 150),
+    this.finalizeWithAst = true,
   });
 
   /// Default streaming options.
@@ -61,6 +62,9 @@ class StreamingOptions {
   /// Duration for auto-scroll animation.
   final Duration scrollAnimationDuration;
 
+  /// Whether to re-parse with AST when streaming completes.
+  final bool finalizeWithAst;
+
   /// Creates a copy with optional overrides.
   StreamingOptions copyWith({
     BufferMode? bufferMode,
@@ -71,6 +75,7 @@ class StreamingOptions {
     double? incompleteBlockOpacity,
     bool? autoScrollToBottom,
     Duration? scrollAnimationDuration,
+    bool? finalizeWithAst,
   }) {
     return StreamingOptions(
       bufferMode: bufferMode ?? this.bufferMode,
@@ -84,6 +89,7 @@ class StreamingOptions {
       autoScrollToBottom: autoScrollToBottom ?? this.autoScrollToBottom,
       scrollAnimationDuration:
           scrollAnimationDuration ?? this.scrollAnimationDuration,
+      finalizeWithAst: finalizeWithAst ?? this.finalizeWithAst,
     );
   }
 
@@ -96,14 +102,16 @@ class StreamingOptions {
           throttleMs == other.throttleMs &&
           showTypingCursor == other.showTypingCursor &&
           renderIncompleteBlocks == other.renderIncompleteBlocks &&
-          autoScrollToBottom == other.autoScrollToBottom;
+          autoScrollToBottom == other.autoScrollToBottom &&
+          finalizeWithAst == other.finalizeWithAst;
 
   @override
   int get hashCode => Object.hash(
-        bufferMode,
-        throttleMs,
-        showTypingCursor,
-        renderIncompleteBlocks,
-        autoScrollToBottom,
-      );
+    bufferMode,
+    throttleMs,
+    showTypingCursor,
+    renderIncompleteBlocks,
+    autoScrollToBottom,
+    finalizeWithAst,
+  );
 }

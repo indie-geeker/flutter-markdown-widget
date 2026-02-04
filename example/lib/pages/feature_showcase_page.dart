@@ -44,8 +44,10 @@ class _FeatureShowcasePageState extends State<FeatureShowcasePage> {
 
   bool _denseTheme = false;
   bool _useLongDocument = false;
+  bool _showVisualDiff = false;
 
   PreviewMode _previewMode = PreviewMode.streamingView;
+  ParserMode _parserMode = ParserMode.ast;
   late final String _longDocument;
 
   @override
@@ -67,6 +69,7 @@ class _FeatureShowcasePageState extends State<FeatureShowcasePage> {
 
   RenderOptions _renderOptions() {
     return RenderOptions(
+      parserMode: _parserMode,
       enableLatex: _enableLatex,
       enableCodeHighlight: _enableCodeHighlight,
       enableTables: _enableTables,
@@ -89,9 +92,8 @@ class _FeatureShowcasePageState extends State<FeatureShowcasePage> {
   @override
   Widget build(BuildContext context) {
     final isWide = MediaQuery.of(context).size.width >= 1000;
-    final content = _useLongDocument
-        ? _longDocument
-        : MarkdownSamples.featureShowcase;
+    final content =
+        _useLongDocument ? _longDocument : MarkdownSamples.featureShowcase;
     final markdownTheme = ExampleTheme.markdownTheme(
       context,
       accent: AppPalette.brand,
@@ -124,6 +126,12 @@ class _FeatureShowcasePageState extends State<FeatureShowcasePage> {
                           previewMode: _previewMode,
                           onPreviewModeChanged: (mode) =>
                               setState(() => _previewMode = mode),
+                          parserMode: _parserMode,
+                          onParserModeChanged: (mode) =>
+                              setState(() => _parserMode = mode),
+                          showVisualDiff: _showVisualDiff,
+                          onToggleVisualDiff: (v) =>
+                              setState(() => _showVisualDiff = v),
                           enableLatex: _enableLatex,
                           enableCodeHighlight: _enableCodeHighlight,
                           enableTables: _enableTables,
@@ -176,6 +184,7 @@ class _FeatureShowcasePageState extends State<FeatureShowcasePage> {
                     Expanded(
                       child: _PreviewCard(
                         previewMode: _previewMode,
+                        showVisualDiff: _showVisualDiff,
                         content: content,
                         theme: markdownTheme,
                         renderOptions: _renderOptions(),
@@ -189,6 +198,12 @@ class _FeatureShowcasePageState extends State<FeatureShowcasePage> {
                       previewMode: _previewMode,
                       onPreviewModeChanged: (mode) =>
                           setState(() => _previewMode = mode),
+                      parserMode: _parserMode,
+                      onParserModeChanged: (mode) =>
+                          setState(() => _parserMode = mode),
+                      showVisualDiff: _showVisualDiff,
+                      onToggleVisualDiff: (v) =>
+                          setState(() => _showVisualDiff = v),
                       enableLatex: _enableLatex,
                       enableCodeHighlight: _enableCodeHighlight,
                       enableTables: _enableTables,
@@ -238,6 +253,7 @@ class _FeatureShowcasePageState extends State<FeatureShowcasePage> {
                       height: 560,
                       child: _PreviewCard(
                         previewMode: _previewMode,
+                        showVisualDiff: _showVisualDiff,
                         content: content,
                         theme: markdownTheme,
                         renderOptions: _renderOptions(),
@@ -254,36 +270,22 @@ class _FeatureShowcasePageState extends State<FeatureShowcasePage> {
 class _PreviewCard extends StatelessWidget {
   const _PreviewCard({
     required this.previewMode,
+    required this.showVisualDiff,
     required this.content,
     required this.theme,
     required this.renderOptions,
   });
 
   final PreviewMode previewMode;
+  final bool showVisualDiff;
   final String content;
   final MarkdownTheme theme;
   final RenderOptions renderOptions;
 
   @override
   Widget build(BuildContext context) {
-    Widget preview;
-
-    if (previewMode == PreviewMode.markdownContent) {
-      preview = SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: MarkdownContent(
-          content: content,
-          theme: theme,
-          renderOptions: renderOptions,
-        ),
-      );
-    } else {
-      preview = StreamingMarkdownView(
-        content: content,
-        padding: const EdgeInsets.all(24),
-        theme: theme,
-        renderOptions: renderOptions,
-      );
+    if (showVisualDiff) {
+      return _buildVisualDiffCard(context);
     }
 
     return SurfaceCard(
@@ -291,8 +293,106 @@ class _PreviewCard extends StatelessWidget {
       radius: 24,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(24),
-        child: preview,
+        child: _buildSinglePreview(
+          parserMode: renderOptions.parserMode,
+        ),
       ),
+    );
+  }
+
+  Widget _buildVisualDiffCard(BuildContext context) {
+    return SurfaceCard(
+      padding: EdgeInsets.zero,
+      radius: 24,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final isWide = constraints.maxWidth >= 900;
+            final astPane = _DiffPane(
+              title: 'AST',
+              child: _buildSinglePreview(parserMode: ParserMode.ast),
+            );
+            final incrementalPane = _DiffPane(
+              title: 'Incremental',
+              child: _buildSinglePreview(
+                parserMode: ParserMode.incremental,
+              ),
+            );
+
+            if (isWide) {
+              return Row(
+                children: [
+                  Expanded(child: astPane),
+                  Container(width: 1, color: Theme.of(context).dividerColor),
+                  Expanded(child: incrementalPane),
+                ],
+              );
+            }
+
+            return Column(
+              children: [
+                Expanded(child: astPane),
+                Container(height: 1, color: Theme.of(context).dividerColor),
+                Expanded(child: incrementalPane),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSinglePreview({
+    required ParserMode parserMode,
+  }) {
+    final options = renderOptions.copyWith(parserMode: parserMode);
+    if (previewMode == PreviewMode.markdownContent) {
+      return SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: MarkdownContent(
+          content: content,
+          theme: theme,
+          renderOptions: options,
+        ),
+      );
+    }
+
+    return StreamingMarkdownView(
+      content: content,
+      padding: const EdgeInsets.all(24),
+      theme: theme,
+      renderOptions: options,
+    );
+  }
+}
+
+class _DiffPane extends StatelessWidget {
+  const _DiffPane({
+    required this.title,
+    required this.child,
+  });
+
+  final String title;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+          child: Text(
+            title,
+            style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
+        ),
+        Expanded(child: child),
+      ],
     );
   }
 }
@@ -301,6 +401,10 @@ class _OptionsPanel extends StatelessWidget {
   const _OptionsPanel({
     required this.previewMode,
     required this.onPreviewModeChanged,
+    required this.parserMode,
+    required this.onParserModeChanged,
+    required this.showVisualDiff,
+    required this.onToggleVisualDiff,
     required this.enableLatex,
     required this.enableCodeHighlight,
     required this.enableTables,
@@ -335,6 +439,10 @@ class _OptionsPanel extends StatelessWidget {
 
   final PreviewMode previewMode;
   final ValueChanged<PreviewMode> onPreviewModeChanged;
+  final ParserMode parserMode;
+  final ValueChanged<ParserMode> onParserModeChanged;
+  final bool showVisualDiff;
+  final ValueChanged<bool> onToggleVisualDiff;
   final bool enableLatex;
   final bool enableCodeHighlight;
   final bool enableTables;
@@ -395,8 +503,41 @@ class _OptionsPanel extends StatelessWidget {
                 ),
               ],
               selected: {previewMode},
-              onSelectionChanged: (value) =>
-                  onPreviewModeChanged(value.first),
+              onSelectionChanged: (value) => onPreviewModeChanged(value.first),
+            ),
+          ),
+          const SizedBox(height: 8),
+          OptionSwitchTile(
+            title: 'Visual Diff (AST vs Incremental)',
+            subtitle: 'Show two panes side-by-side to compare parser outputs.',
+            value: showVisualDiff,
+            onChanged: onToggleVisualDiff,
+          ),
+          const SizedBox(height: 8),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: SegmentedButton<ParserMode>(
+              segments: const [
+                ButtonSegment(
+                  value: ParserMode.ast,
+                  label: Text('AST'),
+                ),
+                ButtonSegment(
+                  value: ParserMode.incremental,
+                  label: Text('Incremental'),
+                ),
+              ],
+              selected: {parserMode},
+              onSelectionChanged: showVisualDiff
+                  ? null
+                  : (value) => onParserModeChanged(value.first),
+            ),
+          ),
+          const Padding(
+            padding: EdgeInsets.fromLTRB(16, 6, 16, 0),
+            child: Text(
+              'Use AST for accurate static rendering, or incremental for low-latency updates.',
+              style: TextStyle(fontSize: 12),
             ),
           ),
           const SizedBox(height: 8),

@@ -10,6 +10,7 @@ import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import '../core/parser/content_block.dart';
 import '../core/parser/markdown_parser.dart';
 import '../core/parser/incremental_parser.dart';
+import '../core/parser/ast_markdown_parser.dart';
 import '../core/cache/widget_cache.dart';
 import '../builder/content_builder.dart';
 import '../style/markdown_theme.dart';
@@ -86,16 +87,17 @@ class _MarkdownWidgetState extends State<MarkdownWidget> {
   late MarkdownParser _parser;
   late ContentBuilder _builder;
   late WidgetRenderCache _cache;
-  
+
   /// Controller for jumping to specific items by index
   final ItemScrollController _itemScrollController = ItemScrollController();
-  
+
   /// Listener for tracking visible items (used for TOC sync)
-  final ItemPositionsListener _itemPositionsListener = ItemPositionsListener.create();
-  
+  final ItemPositionsListener _itemPositionsListener =
+      ItemPositionsListener.create();
+
   /// Timer for sequential TOC highlighting during jump transitions
   Timer? _transitionTimer;
-  
+
   List<ContentBlock> _blocks = [];
   final TocGenerator _tocGenerator = TocGenerator(
     config: const TocConfig(buildHierarchy: false),
@@ -126,10 +128,10 @@ class _MarkdownWidgetState extends State<MarkdownWidget> {
 
   void _onVisibleItemsChanged() {
     if (widget.tocController == null) return;
-    
+
     // Skip scroll-based updates while a programmatic jump is in progress
     if (widget.tocController!.isJumping) return;
-    
+
     final positions = _itemPositionsListener.itemPositions.value;
     if (positions.isEmpty) return;
 
@@ -174,7 +176,7 @@ class _MarkdownWidgetState extends State<MarkdownWidget> {
     final sortedPositions = positions.toList()
       ..sort((a, b) => a.index.compareTo(b.index));
     final firstVisibleIndex = sortedPositions.first.index;
-    
+
     for (int i = firstVisibleIndex; i >= 0; i--) {
       if (_blocks[i].type == ContentBlockType.heading) {
         widget.tocController!.notifyIndexChanged(i);
@@ -234,6 +236,15 @@ class _MarkdownWidgetState extends State<MarkdownWidget> {
     if (factory != null) {
       return factory(widget.renderOptions);
     }
+    if (widget.renderOptions.parserMode == ParserMode.ast) {
+      return AstMarkdownParser(
+        enableLatex: widget.renderOptions.enableLatex,
+        enableAutolinks: widget.renderOptions.enableAutolinks,
+        customBlockSyntaxes: widget.renderOptions.customBlockSyntaxes,
+        customInlineSyntaxes: widget.renderOptions.customInlineSyntaxes,
+        extensionSet: widget.renderOptions.extensionSet,
+      );
+    }
     return IncrementalMarkdownParser(
       enableLatex: widget.renderOptions.enableLatex,
       customBlockSyntaxes: widget.renderOptions.customBlockSyntaxes,
@@ -250,20 +261,20 @@ class _MarkdownWidgetState extends State<MarkdownWidget> {
 
     final isSyncMode = widget.tocController?.syncTocDuringJump ?? false;
     final currentIndex = widget.tocController?.currentIndex ?? 0;
-    
+
     Duration scrollDuration;
     Curve scrollCurve;
-    
+
     if (isSyncMode) {
       // Collect all headings between current and target
       final headingIndices = _collectHeadingsBetween(currentIndex, blockIndex);
       final headingCount = headingIndices.length;
-      
+
       // 100ms per heading, minimum 200ms, maximum 1500ms
       final calculatedMs = headingCount * 60;
       scrollDuration = Duration(milliseconds: calculatedMs.clamp(200, 1500));
       scrollCurve = Curves.linear;
-      
+
       // Start sequential highlighting animation
       if (headingIndices.isNotEmpty) {
         _startTransitionAnimation(headingIndices, scrollDuration);
@@ -274,23 +285,25 @@ class _MarkdownWidgetState extends State<MarkdownWidget> {
       scrollCurve = Curves.easeInOut;
     }
 
-    _itemScrollController.scrollTo(
-      index: blockIndex,
-      duration: scrollDuration,
-      curve: scrollCurve,
-      alignment: 0.1,
-    ).then((_) {
-      _transitionTimer?.cancel();
-      widget.tocController?.notifyIndexChanged(blockIndex);
-      widget.tocController?.onJumpComplete();
-    });
+    _itemScrollController
+        .scrollTo(
+          index: blockIndex,
+          duration: scrollDuration,
+          curve: scrollCurve,
+          alignment: 0.1,
+        )
+        .then((_) {
+          _transitionTimer?.cancel();
+          widget.tocController?.notifyIndexChanged(blockIndex);
+          widget.tocController?.onJumpComplete();
+        });
   }
 
   /// Collects heading indices between [fromIndex] and [toIndex] in scroll order.
   List<int> _collectHeadingsBetween(int fromIndex, int toIndex) {
     final List<int> headingIndices = [];
     final isForward = toIndex > fromIndex;
-    
+
     if (isForward) {
       for (int i = fromIndex + 1; i <= toIndex; i++) {
         if (_blocks[i].type == ContentBlockType.heading) {
@@ -308,21 +321,24 @@ class _MarkdownWidgetState extends State<MarkdownWidget> {
   }
 
   /// Starts a timer that highlights each heading in [headingIndices] sequentially.
-  void _startTransitionAnimation(List<int> headingIndices, Duration totalDuration) {
-    final delayPerHeading = totalDuration.inMilliseconds ~/ headingIndices.length;
+  void _startTransitionAnimation(
+    List<int> headingIndices,
+    Duration totalDuration,
+  ) {
+    final delayPerHeading =
+        totalDuration.inMilliseconds ~/ headingIndices.length;
     int currentStep = 0;
-    
-    _transitionTimer = Timer.periodic(
-      Duration(milliseconds: delayPerHeading),
-      (timer) {
-        if (currentStep >= headingIndices.length || !mounted) {
-          timer.cancel();
-          return;
-        }
-        widget.tocController?.notifyIndexChanged(headingIndices[currentStep]);
-        currentStep++;
-      },
-    );
+
+    _transitionTimer = Timer.periodic(Duration(milliseconds: delayPerHeading), (
+      timer,
+    ) {
+      if (currentStep >= headingIndices.length || !mounted) {
+        timer.cancel();
+        return;
+      }
+      widget.tocController?.notifyIndexChanged(headingIndices[currentStep]);
+      currentStep++;
+    });
   }
 
   @override
@@ -343,8 +359,8 @@ class _MarkdownWidgetState extends State<MarkdownWidget> {
     // Get base theme from context (which provides default styles from Flutter's ThemeData)
     final baseTheme = MarkdownThemeProvider.of(context);
     // Merge user's theme on top of base theme (user overrides take precedence)
-    final effectiveTheme = widget.theme != null 
-        ? baseTheme.merge(widget.theme!) 
+    final effectiveTheme = widget.theme != null
+        ? baseTheme.merge(widget.theme!)
         : baseTheme;
 
     return MarkdownThemeProvider(
