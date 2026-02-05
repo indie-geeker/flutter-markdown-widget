@@ -7,8 +7,24 @@ import 'package:flutter/material.dart';
 import '../../style/markdown_theme.dart';
 import '../content_builder.dart';
 
+typedef InlineSpanBuilder = TextSpan Function(
+  BuildContext context,
+  String text,
+  MarkdownTheme theme, {
+  TextStyle? baseStyle,
+});
+
 /// Builder for table elements.
 class TableNodeBuilder extends ElementBuilder {
+  TableNodeBuilder({
+    InlineSpanBuilder? inlineSpanBuilder,
+    bool selectableText = true,
+  })  : _inlineSpanBuilder = inlineSpanBuilder,
+        _selectableText = selectableText;
+
+  final InlineSpanBuilder? _inlineSpanBuilder;
+  final bool _selectableText;
+
   @override
   Widget build(BuildContext context, String content, MarkdownTheme theme) {
     final parsed = _parseTable(content);
@@ -36,6 +52,7 @@ class TableNodeBuilder extends ElementBuilder {
               ),
               children: headers.asMap().entries.map((entry) {
                 return _buildCell(
+                  context,
                   entry.value,
                   theme,
                   isHeader: true,
@@ -48,6 +65,7 @@ class TableNodeBuilder extends ElementBuilder {
               return TableRow(
                 children: row.asMap().entries.map((entry) {
                   return _buildCell(
+                    context,
                     entry.value,
                     theme,
                     alignment: entry.key < alignments.length
@@ -64,20 +82,45 @@ class TableNodeBuilder extends ElementBuilder {
   }
 
   Widget _buildCell(
+    BuildContext context,
     String content,
     MarkdownTheme theme, {
     bool isHeader = false,
     TextAlign alignment = TextAlign.left,
   }) {
+    final baseStyle = isHeader
+        ? (theme.tableStyle ?? theme.textStyle)
+            ?.copyWith(fontWeight: FontWeight.bold)
+        : theme.tableStyle ?? theme.textStyle;
+
+    if (_inlineSpanBuilder != null) {
+      final span = _inlineSpanBuilder!(
+        context,
+        content.trim(),
+        theme,
+        baseStyle: baseStyle,
+      );
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: _selectableText
+            ? SelectableText.rich(span, textAlign: alignment)
+            : RichText(text: span, textAlign: alignment),
+      );
+    }
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      child: SelectableText(
-        _sanitizeUtf16(content.trim()),
-        style: isHeader
-            ? theme.tableStyle?.copyWith(fontWeight: FontWeight.bold)
-            : theme.tableStyle,
-        textAlign: alignment,
-      ),
+      child: _selectableText
+          ? SelectableText(
+              _sanitizeUtf16(content.trim()),
+              style: baseStyle,
+              textAlign: alignment,
+            )
+          : Text(
+              _sanitizeUtf16(content.trim()),
+              style: baseStyle,
+              textAlign: alignment,
+            ),
     );
   }
 

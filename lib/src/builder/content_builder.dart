@@ -30,7 +30,10 @@ class ContentBuilder {
       'latex_inline': FormulaBuilder(isBlock: false),
       'latex_block': FormulaBuilder(isBlock: true),
       'code': CodeBlockBuilder(),
-      'table': TableNodeBuilder(),
+      'table': TableNodeBuilder(
+        inlineSpanBuilder: _buildInlineSpan,
+        selectableText: renderOptions.selectableText,
+      ),
       ...?customBuilders,
     };
 
@@ -814,10 +817,22 @@ class ContentBuilder {
 
   Widget _buildTaskCheckbox(bool? isChecked, MarkdownTheme theme) {
     final color = theme.textStyle?.color ?? Colors.grey;
-    return Icon(
-      isChecked == true ? Icons.check_box : Icons.check_box_outline_blank,
-      size: 18,
-      color: color.withValues(alpha: 0.7),
+    final textStyle = theme.textStyle ??
+        theme.listBulletStyle ??
+        const TextStyle(fontSize: 14, height: 1.2);
+    final fontSize = textStyle.fontSize ?? 14;
+    final lineHeight = fontSize * (textStyle.height ?? 1.2);
+    final iconSize = fontSize + 3;
+    final topPadding = ((lineHeight - iconSize) / 2)
+        .clamp(0.0, lineHeight) as double;
+
+    return Padding(
+      padding: EdgeInsets.only(top: topPadding),
+      child: Icon(
+        isChecked == true ? Icons.check_box : Icons.check_box_outline_blank,
+        size: iconSize,
+        color: color.withValues(alpha: 0.7),
+      ),
     );
   }
 
