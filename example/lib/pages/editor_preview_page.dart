@@ -10,6 +10,8 @@ import '../widgets/app_background.dart';
 import '../widgets/example_app_bar.dart';
 import '../widgets/surface_card.dart';
 
+enum _MobilePane { editor, preview }
+
 class EditorPreviewPage extends StatefulWidget {
   const EditorPreviewPage({super.key});
 
@@ -45,6 +47,7 @@ void main() {
   final TextEditingController _controller = TextEditingController(
     text: _initialMarkdown,
   );
+  _MobilePane _mobilePane = _MobilePane.editor;
 
   @override
   void dispose() {
@@ -128,12 +131,33 @@ void main() {
                 return splitLayout;
               }
 
-              return SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: SizedBox(
-                  width: 980,
-                  child: splitLayout,
-                ),
+              return Column(
+                children: [
+                  SegmentedButton<_MobilePane>(
+                    segments: const [
+                      ButtonSegment(
+                        value: _MobilePane.editor,
+                        label: Text('Editor'),
+                        icon: Icon(Icons.edit_rounded, size: 16),
+                      ),
+                      ButtonSegment(
+                        value: _MobilePane.preview,
+                        label: Text('Preview'),
+                        icon: Icon(Icons.visibility_rounded, size: 16),
+                      ),
+                    ],
+                    selected: {_mobilePane},
+                    onSelectionChanged: (value) {
+                      setState(() => _mobilePane = value.first);
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  Expanded(
+                    child: _mobilePane == _MobilePane.editor
+                        ? editorPane
+                        : previewPane,
+                  ),
+                ],
               );
             },
           ),

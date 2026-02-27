@@ -5,6 +5,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../core/text/utf16_sanitizer.dart';
 import '../../style/markdown_theme.dart';
 
 /// Widget for displaying code blocks with syntax highlighting.
@@ -158,43 +159,44 @@ class _CodeBlockViewState extends State<CodeBlockView> {
     Widget content;
 
     if (widget.showLineNumbers) {
-      content = IntrinsicHeight(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Line numbers
-            Container(
-              padding: const EdgeInsets.only(right: 12),
-              decoration: BoxDecoration(
-                border: Border(
-                  right: BorderSide(color: Colors.grey.withValues(alpha: 0.3)),
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                mainAxisSize: MainAxisSize.min,
-                children: List.generate(
-                  lines.length,
-                  (i) => Text(
-                    '${i + 1}',
-                    style: codeStyle.copyWith(color: Colors.grey[600]),
-                  ),
+      final lineHeight = (codeStyle.fontSize ?? 14) * (codeStyle.height ?? 1.5);
+      content = Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Line numbers
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            mainAxisSize: MainAxisSize.min,
+            children: List.generate(
+              lines.length,
+              (i) => SizedBox(
+                height: lineHeight,
+                child: Text(
+                  '${i + 1}',
+                  style: codeStyle.copyWith(color: Colors.grey[600]),
                 ),
               ),
             ),
-            const SizedBox(width: 12),
-            // Code
-            SelectableText(
-              _sanitizeUtf16(lines.join('\n')),
-              style: codeStyle,
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Container(
+              width: 1,
+              height: lineHeight * lines.length,
+              color: Colors.grey.withValues(alpha: 0.3),
             ),
-          ],
-        ),
+          ),
+          // Code
+          SelectableText(
+            sanitizeUtf16(lines.join('\n')),
+            style: codeStyle,
+          ),
+        ],
       );
     } else {
       content = SelectableText(
-        _sanitizeUtf16(lines.join('\n')),
+        sanitizeUtf16(lines.join('\n')),
         style: codeStyle,
       );
     }
@@ -213,22 +215,5 @@ class _CodeBlockViewState extends State<CodeBlockView> {
     }
 
     return scrollable;
-  }
-
-  /// Sanitizes a string to ensure it's well-formed UTF-16.
-  String _sanitizeUtf16(String text) {
-    if (text.isEmpty) return text;
-    
-    final lastCodeUnit = text.codeUnitAt(text.length - 1);
-    if (lastCodeUnit >= 0xD800 && lastCodeUnit <= 0xDBFF) {
-      return text.substring(0, text.length - 1);
-    }
-    
-    final firstCodeUnit = text.codeUnitAt(0);
-    if (firstCodeUnit >= 0xDC00 && firstCodeUnit <= 0xDFFF) {
-      return text.substring(1);
-    }
-    
-    return text;
   }
 }

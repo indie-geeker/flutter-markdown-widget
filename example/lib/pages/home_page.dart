@@ -66,10 +66,10 @@ class HomePage extends StatelessWidget {
                           ),
                     ),
                     const SizedBox(height: 20),
-                    Wrap(
+                    const Wrap(
                       spacing: 10,
                       runSpacing: 8,
-                      children: const [
+                      children: [
                         _FeatureChip(label: 'Streaming'),
                         _FeatureChip(label: 'TOC'),
                         _FeatureChip(label: 'LaTeX'),

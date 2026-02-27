@@ -1,39 +1,91 @@
-<!--
-This README describes the package. If you publish this package to pub.dev,
-this README's contents appear on the landing page for your package.
+# flutter_markdown_widget
 
-For information about how to write a good package README, see the guide for
-[writing package pages](https://dart.dev/tools/pub/writing-package-pages).
-
-For general information about developing packages, see the Dart guide for
-[creating packages](https://dart.dev/guides/libraries/create-packages)
-and the Flutter guide for
-[developing packages and plugins](https://flutter.dev/to/develop-packages).
--->
-
-TODO: Put a short description of the package here that helps potential users
-know whether this package might be useful for them.
+High-performance Markdown rendering for Flutter, designed for both static content and AI-style streaming responses.
 
 ## Features
 
-TODO: List what your package can do. Maybe include images, gifs, or videos.
+- Streaming rendering (`StreamingMarkdownView.fromStream`)
+- Incremental parser for low-latency updates
+- AST parser for accurate static rendering
+- Built-in LaTeX support (`$...$`, `$$...$$`)
+- TOC support with jump-to-heading (`MarkdownWidget` + `TocController`)
+- Virtual scrolling for large documents
+- Configurable render pipeline (`RenderOptions`, custom parser/custom syntax)
 
-## Getting started
+## Installation
 
-TODO: List prerequisites and provide or point to information on how to
-start using the package.
-
-## Usage
-
-TODO: Include short and useful examples for package users. Add longer examples
-to `/example` folder.
-
-```dart
-const like = 'sample';
+```bash
+flutter pub add flutter_markdown_widget
 ```
 
-## Additional information
+## Quick Start
 
-TODO: Tell users more about the package: where to find more information, how to
-contribute to the package, how to file issues, what response they can expect
-from the package authors, and more.
+### Static markdown
+
+```dart
+StreamingMarkdownView(
+  content: '# Hello\n\nThis is markdown.',
+)
+```
+
+### Streaming markdown
+
+```dart
+StreamingMarkdownView.fromStream(
+  stream: responseStream,
+  streamingOptions: const StreamingOptions(
+    bufferMode: BufferMode.byBlock,
+    showTypingCursor: true,
+  ),
+)
+```
+
+### TOC navigation
+
+```dart
+final tocController = TocController();
+
+Row(
+  children: [
+    SizedBox(
+      width: 260,
+      child: TocListWidget(controller: tocController),
+    ),
+    Expanded(
+      child: MarkdownWidget(
+        data: markdown,
+        tocController: tocController,
+      ),
+    ),
+  ],
+)
+```
+
+## Rendering Modes
+
+- `ParserMode.ast`: recommended for static content and maximum structural accuracy
+- `ParserMode.incremental`: recommended for streaming/continuous updates
+
+## Performance Notes
+
+- Enable virtual scrolling for long documents (`enableVirtualScrolling: true`)
+- For chat-style streams, use `BufferMode.byBlock` or `BufferMode.byInterval`
+- Use `MarkdownContent` when embedding markdown in an existing parent scroll view
+
+## Example App
+
+See `/example` for end-to-end demos:
+
+- Feature Showcase
+- Streaming Lab
+- TOC Navigator
+- Editor Preview
+- Performance
+
+## Contributing
+
+Issues and PRs are welcome: <https://github.com/indie-geeker/flutter-markdown-widget>
+
+## License
+
+BSD-3-Clause (see `LICENSE`)

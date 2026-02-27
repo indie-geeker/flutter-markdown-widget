@@ -4,6 +4,7 @@
 
 import 'package:flutter/material.dart';
 
+import '../../core/text/utf16_sanitizer.dart';
 import '../../style/markdown_theme.dart';
 import '../content_builder.dart';
 
@@ -94,7 +95,7 @@ class TableNodeBuilder extends ElementBuilder {
         : theme.tableStyle ?? theme.textStyle;
 
     if (_inlineSpanBuilder != null) {
-      final span = _inlineSpanBuilder!(
+      final span = _inlineSpanBuilder(
         context,
         content.trim(),
         theme,
@@ -112,35 +113,16 @@ class TableNodeBuilder extends ElementBuilder {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       child: _selectableText
           ? SelectableText(
-              _sanitizeUtf16(content.trim()),
+              sanitizeUtf16(content.trim()),
               style: baseStyle,
               textAlign: alignment,
             )
           : Text(
-              _sanitizeUtf16(content.trim()),
+              sanitizeUtf16(content.trim()),
               style: baseStyle,
               textAlign: alignment,
             ),
     );
-  }
-
-  /// Sanitizes a string to ensure it's well-formed UTF-16.
-  String _sanitizeUtf16(String text) {
-    if (text.isEmpty) return text;
-    
-    // Check if the last character is a high surrogate without a low surrogate
-    final lastCodeUnit = text.codeUnitAt(text.length - 1);
-    if (lastCodeUnit >= 0xD800 && lastCodeUnit <= 0xDBFF) {
-      return text.substring(0, text.length - 1);
-    }
-    
-    // Check if the first character is a lone low surrogate
-    final firstCodeUnit = text.codeUnitAt(0);
-    if (firstCodeUnit >= 0xDC00 && firstCodeUnit <= 0xDFFF) {
-      return text.substring(1);
-    }
-    
-    return text;
   }
 
   /// Parses a markdown table string.

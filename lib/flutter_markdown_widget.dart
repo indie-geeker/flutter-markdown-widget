@@ -2,28 +2,26 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-/// A high-performance streaming Markdown rendering library for Flutter.
+/// Public API entrypoint for `flutter_markdown_widget`.
 ///
-/// This library provides:
-/// - Streaming rendering for AI chat scenarios
-/// - Virtual scrolling for long documents
-/// - Built-in LaTeX support
-/// - Enhanced code block highlighting
+/// Provides:
+/// - [StreamingMarkdownView] for chat-style streaming output
+/// - [MarkdownWidget] for static documents with optional TOC sync
+/// - [RenderOptions] and [MarkdownTheme] for rendering control
 ///
 /// Basic usage:
 /// ```dart
 /// import 'package:flutter_markdown_widget/flutter_markdown_widget.dart';
 ///
-/// // Static rendering
 /// StreamingMarkdownView(
 ///   content: '# Hello World',
-/// )
+/// );
 ///
-/// // Streaming rendering
 /// StreamingMarkdownView.fromStream(
 ///   stream: aiResponseStream,
-/// )
+/// );
 /// ```
+library;
 
 // Core exports
 export 'src/core/parser/markdown_parser.dart';

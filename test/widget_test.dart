@@ -62,6 +62,30 @@ void main() {}
       expect(find.text('Copy'), findsOneWidget);
     });
 
+    testWidgets('renders line numbers for multiline code blocks', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            body: StreamingMarkdownView(
+              content: '''```dart
+line1
+line2
+line3
+```''',
+            ),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      expect(find.text('1'), findsOneWidget);
+      expect(find.text('2'), findsOneWidget);
+      expect(find.text('3'), findsOneWidget);
+    });
+
     testWidgets('handles streaming from stream', (tester) async {
       // Test that the factory constructor creates a widget
       final controller = StreamController<String>.broadcast();
@@ -209,6 +233,87 @@ void main() {}
 
       expect(find.textContaining('[Image: Alt]'), findsOneWidget);
     });
+
+    testWidgets('falls back to paragraph for malformed table blocks', (tester) async {
+      final blocks = [
+        const ContentBlock(
+          type: ContentBlockType.table,
+          rawContent: '| just text |',
+          contentHash: 7,
+          startLine: 0,
+          endLine: 0,
+        ),
+      ];
+      final options = RenderOptions(parserFactory: (_) => _StubParser(blocks));
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: StreamingMarkdownView(
+              content: 'ignored',
+              renderOptions: options,
+            ),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      expect(find.text('| just text |'), findsOneWidget);
+    });
+
+    testWidgets('does not recreate parser for equivalent options and theme', (
+      tester,
+    ) async {
+      int factoryCalls = 0;
+      final blocks = [
+        const ContentBlock(
+          type: ContentBlockType.paragraph,
+          rawContent: 'From factory',
+          contentHash: 11,
+          startLine: 0,
+          endLine: 0,
+        ),
+      ];
+      MarkdownParser parserFactory(RenderOptions _) {
+        factoryCalls++;
+        return _StubParser(blocks);
+      }
+
+      final options1 = RenderOptions(parserFactory: parserFactory);
+      final options2 = RenderOptions(parserFactory: parserFactory);
+      final theme1 = MarkdownTheme(headingSpacing: 24);
+      final theme2 = MarkdownTheme(headingSpacing: 24);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: StreamingMarkdownView(
+              content: 'ignored',
+              renderOptions: options1,
+              theme: theme1,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(factoryCalls, 1);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: StreamingMarkdownView(
+              content: 'ignored',
+              renderOptions: options2,
+              theme: theme2,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(factoryCalls, 1);
+    });
   });
 
   group('MarkdownContent', () {
@@ -251,6 +356,107 @@ void main() {}
 
       expect(generatedBlocks, isNotNull);
       expect(generatedBlocks!.length, greaterThanOrEqualTo(2));
+    });
+
+    testWidgets('does not recreate parser for equivalent render options', (
+      tester,
+    ) async {
+      int factoryCalls = 0;
+      final blocks = [
+        const ContentBlock(
+          type: ContentBlockType.paragraph,
+          rawContent: 'Factory block',
+          contentHash: 21,
+          startLine: 0,
+          endLine: 0,
+        ),
+      ];
+      MarkdownParser parserFactory(RenderOptions _) {
+        factoryCalls++;
+        return _StubParser(blocks);
+      }
+
+      final options1 = RenderOptions(parserFactory: parserFactory);
+      final options2 = RenderOptions(parserFactory: parserFactory);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: MarkdownContent(
+              content: 'ignored',
+              renderOptions: options1,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(factoryCalls, 1);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: MarkdownContent(
+              content: 'ignored',
+              renderOptions: options2,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(factoryCalls, 1);
+    });
+  });
+
+  group('MarkdownWidget', () {
+    testWidgets('does not recreate parser for equivalent render options', (
+      tester,
+    ) async {
+      int factoryCalls = 0;
+      final blocks = [
+        const ContentBlock(
+          type: ContentBlockType.heading,
+          rawContent: '# Factory title',
+          contentHash: 31,
+          startLine: 0,
+          endLine: 0,
+          headingLevel: 1,
+        ),
+      ];
+      MarkdownParser parserFactory(RenderOptions _) {
+        factoryCalls++;
+        return _StubParser(blocks);
+      }
+
+      final options1 = RenderOptions(parserFactory: parserFactory);
+      final options2 = RenderOptions(parserFactory: parserFactory);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: MarkdownWidget(
+              data: 'ignored',
+              renderOptions: options1,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(factoryCalls, 1);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: MarkdownWidget(
+              data: 'ignored',
+              renderOptions: options2,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(factoryCalls, 1);
     });
   });
 

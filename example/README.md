@@ -1,16 +1,24 @@
-# flutter_markdown_widget_example
+# flutter_markdown_widget example
 
-A new Flutter project.
+Demo application for `flutter_markdown_widget`.
 
-## Getting Started
+## Run
 
-This project is a starting point for a Flutter application.
+```bash
+cd example
+flutter pub get
+flutter run
+```
 
-A few resources to get you started if this is your first Flutter project:
+## Demo Pages
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+- `Editor Preview`: split editor + live markdown preview
+- `Feature Showcase`: toggle render options (LaTeX, tables, images, parser mode)
+- `Streaming Lab`: simulate token streaming and buffer strategies
+- `TOC Navigator`: heading sync and jump navigation with `TocController`
+- `Performance`: virtual scrolling and long-document rendering
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## Notes
+
+- The app supports desktop and mobile layouts.
+- Use this project as reference integration code when adding the package to your own app.

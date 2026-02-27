@@ -243,6 +243,68 @@ class MarkdownTheme {
       blockquotePadding: other.blockquotePadding ?? blockquotePadding,
     );
   }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is MarkdownTheme &&
+          runtimeType == other.runtimeType &&
+          textStyle == other.textStyle &&
+          h1Style == other.h1Style &&
+          h2Style == other.h2Style &&
+          h3Style == other.h3Style &&
+          h4Style == other.h4Style &&
+          h5Style == other.h5Style &&
+          h6Style == other.h6Style &&
+          codeStyle == other.codeStyle &&
+          codeBlockStyle == other.codeBlockStyle &&
+          blockquoteStyle == other.blockquoteStyle &&
+          linkStyle == other.linkStyle &&
+          listBulletStyle == other.listBulletStyle &&
+          tableStyle == other.tableStyle &&
+          tableBorderColor == other.tableBorderColor &&
+          tableHeaderColor == other.tableHeaderColor &&
+          codeBlockBackground == other.codeBlockBackground &&
+          codeBlockBorderRadius == other.codeBlockBorderRadius &&
+          blockquoteBorderColor == other.blockquoteBorderColor &&
+          blockquoteBackground == other.blockquoteBackground &&
+          horizontalRuleColor == other.horizontalRuleColor &&
+          paragraphSpacing == other.paragraphSpacing &&
+          headingSpacing == other.headingSpacing &&
+          blockSpacing == other.blockSpacing &&
+          listIndent == other.listIndent &&
+          codeBlockPadding == other.codeBlockPadding &&
+          blockquotePadding == other.blockquotePadding;
+
+  @override
+  int get hashCode => Object.hashAll([
+    textStyle,
+    h1Style,
+    h2Style,
+    h3Style,
+    h4Style,
+    h5Style,
+    h6Style,
+    codeStyle,
+    codeBlockStyle,
+    blockquoteStyle,
+    linkStyle,
+    listBulletStyle,
+    tableStyle,
+    tableBorderColor,
+    tableHeaderColor,
+    codeBlockBackground,
+    codeBlockBorderRadius,
+    blockquoteBorderColor,
+    blockquoteBackground,
+    horizontalRuleColor,
+    paragraphSpacing,
+    headingSpacing,
+    blockSpacing,
+    listIndent,
+    codeBlockPadding,
+    blockquotePadding,
+  ]);
 }
 
 /// Inherited widget for markdown theme.

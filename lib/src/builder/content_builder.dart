@@ -9,6 +9,7 @@ import 'package:markdown/markdown.dart' as md;
 import '../core/parser/content_block.dart';
 import '../core/parser/ast_models.dart';
 import '../core/parser/custom_syntaxes.dart';
+import '../core/text/utf16_sanitizer.dart';
 import '../style/markdown_theme.dart';
 import '../config/render_options.dart';
 import 'element_builders/formula_builder.dart';
@@ -464,7 +465,11 @@ class ContentBuilder {
       return _buildAstTable(context, ast!.tableData!, theme);
     }
     final builder = _builders['table'] as TableNodeBuilder;
-    return builder.build(context, block.rawContent, theme);
+    final tableWidget = builder.build(context, block.rawContent, theme);
+    if (tableWidget is SizedBox && tableWidget.child == null) {
+      return _buildParagraph(context, block, theme);
+    }
+    return tableWidget;
   }
 
   Widget _buildHorizontalRule(BuildContext context, MarkdownTheme theme) {
@@ -553,7 +558,7 @@ class ContentBuilder {
     TextStyle? baseStyle,
   }) {
     // Sanitize text to prevent UTF-16 encoding errors during streaming
-    final safeText = _sanitizeUtf16(text);
+    final safeText = sanitizeUtf16(text);
     if (!_needsMarkdownParsing(safeText)) {
       return TextSpan(style: baseStyle ?? theme.textStyle, text: safeText);
     }
@@ -629,37 +634,6 @@ class ContentBuilder {
     return false;
   }
 
-  /// Sanitizes a string to ensure it's well-formed UTF-16.
-  ///
-  /// Removes incomplete surrogate pairs that can occur during streaming
-  /// when multi-byte characters (like emoji) are split across chunks.
-  String _sanitizeUtf16(String text) {
-    if (text.isEmpty) return text;
-
-    final runes = text.runes.toList();
-    if (runes.isEmpty) return '';
-
-    // Check if the last character is a high surrogate without a low surrogate
-    final lastCodeUnit = text.codeUnitAt(text.length - 1);
-    if (_isHighSurrogate(lastCodeUnit)) {
-      // Remove the incomplete surrogate
-      return text.substring(0, text.length - 1);
-    }
-
-    // Check if the first character is a lone low surrogate
-    final firstCodeUnit = text.codeUnitAt(0);
-    if (_isLowSurrogate(firstCodeUnit)) {
-      return text.substring(1);
-    }
-
-    return text;
-  }
-
-  bool _isHighSurrogate(int codeUnit) =>
-      codeUnit >= 0xD800 && codeUnit <= 0xDBFF;
-  bool _isLowSurrogate(int codeUnit) =>
-      codeUnit >= 0xDC00 && codeUnit <= 0xDFFF;
-
   List<InlineSpan> _buildInlineChildren(
     BuildContext context,
     List<md.Node> nodes,
@@ -669,7 +643,7 @@ class ContentBuilder {
 
     for (final node in nodes) {
       if (node is md.Text) {
-        spans.add(TextSpan(text: _sanitizeUtf16(node.text)));
+        spans.add(TextSpan(text: sanitizeUtf16(node.text)));
       } else if (node is md.Element) {
         spans.addAll(_buildInlineElement(context, node, theme));
       }
@@ -710,11 +684,11 @@ class ContentBuilder {
         ];
       case 'code':
         if (!renderOptions.enableCodeHighlight) {
-          return [TextSpan(text: _sanitizeUtf16(element.textContent))];
+          return [TextSpan(text: sanitizeUtf16(element.textContent))];
         }
         return [
           TextSpan(
-            text: _sanitizeUtf16(element.textContent),
+            text: sanitizeUtf16(element.textContent),
             style: theme.codeStyle,
           ),
         ];
@@ -722,7 +696,7 @@ class ContentBuilder {
         final href = element.attributes['href'];
         return [
           TextSpan(
-            text: _sanitizeUtf16(element.textContent),
+            text: sanitizeUtf16(element.textContent),
             style: theme.linkStyle,
             recognizer: renderOptions.onLinkTap != null
                 ? (TapGestureRecognizer()
@@ -757,7 +731,7 @@ class ContentBuilder {
             ),
           ];
         }
-        return [TextSpan(text: _sanitizeUtf16(element.textContent))];
+        return [TextSpan(text: sanitizeUtf16(element.textContent))];
       case 'img':
       case 'image':
         return _buildInlineImage(context, element, theme);
@@ -823,8 +797,8 @@ class ContentBuilder {
     final fontSize = textStyle.fontSize ?? 14;
     final lineHeight = fontSize * (textStyle.height ?? 1.2);
     final iconSize = fontSize + 3;
-    final topPadding = ((lineHeight - iconSize) / 2)
-        .clamp(0.0, lineHeight) as double;
+    final topPadding =
+        ((lineHeight - iconSize) / 2).clamp(0.0, lineHeight).toDouble();
 
     return Padding(
       padding: EdgeInsets.only(top: topPadding),

@@ -13,7 +13,7 @@ void main() {
       generator = TocGenerator();
     });
 
-    List<ContentBlock> _createBlocks(List<(ContentBlockType, int?, String)> definitions) {
+    List<ContentBlock> createBlocks(List<(ContentBlockType, int?, String)> definitions) {
       return definitions.asMap().entries.map((entry) {
         final (type, level, content) = entry.value;
         return ContentBlock(
@@ -33,7 +33,7 @@ void main() {
     });
 
     test('generates empty TOC for blocks without headings', () {
-      final blocks = _createBlocks([
+      final blocks = createBlocks([
         (ContentBlockType.paragraph, null, 'Some text'),
         (ContentBlockType.codeBlock, null, '```code```'),
       ]);
@@ -43,7 +43,7 @@ void main() {
     });
 
     test('generates TOC entries for headings', () {
-      final blocks = _createBlocks([
+      final blocks = createBlocks([
         (ContentBlockType.heading, 1, '# Title'),
         (ContentBlockType.paragraph, null, 'Content'),
         (ContentBlockType.heading, 2, '## Subtitle'),
@@ -59,7 +59,7 @@ void main() {
     });
 
     test('generateFlat returns flat list', () {
-      final blocks = _createBlocks([
+      final blocks = createBlocks([
         (ContentBlockType.heading, 1, '# Title'),
         (ContentBlockType.heading, 2, '## Subtitle'),
         (ContentBlockType.heading, 3, '### Sub-subtitle'),
@@ -78,7 +78,7 @@ void main() {
         config: const TocConfig(minLevel: 2),
       );
 
-      final blocks = _createBlocks([
+      final blocks = createBlocks([
         (ContentBlockType.heading, 1, '# Title'),
         (ContentBlockType.heading, 2, '## Subtitle'),
         (ContentBlockType.heading, 3, '### Sub-subtitle'),
@@ -95,7 +95,7 @@ void main() {
         config: const TocConfig(maxLevel: 2),
       );
 
-      final blocks = _createBlocks([
+      final blocks = createBlocks([
         (ContentBlockType.heading, 1, '# Title'),
         (ContentBlockType.heading, 2, '## Subtitle'),
         (ContentBlockType.heading, 3, '### Sub-subtitle'),
@@ -108,7 +108,7 @@ void main() {
     });
 
     test('generates anchors when enabled', () {
-      final blocks = _createBlocks([
+      final blocks = createBlocks([
         (ContentBlockType.heading, 1, '# Title'),
         (ContentBlockType.heading, 2, '## Subtitle'),
       ]);
@@ -125,7 +125,7 @@ void main() {
         config: const TocConfig(generateAnchors: false),
       );
 
-      final blocks = _createBlocks([
+      final blocks = createBlocks([
         (ContentBlockType.heading, 1, '# Title'),
       ]);
 
@@ -135,7 +135,7 @@ void main() {
     });
 
     test('extracts heading text correctly', () {
-      final blocks = _createBlocks([
+      final blocks = createBlocks([
         (ContentBlockType.heading, 1, '# Hello World'),
         (ContentBlockType.heading, 2, '## With **bold** text'),
       ]);
@@ -147,7 +147,7 @@ void main() {
     });
 
     test('builds correct hierarchy', () {
-      final blocks = _createBlocks([
+      final blocks = createBlocks([
         (ContentBlockType.heading, 1, '# Chapter 1'),
         (ContentBlockType.heading, 2, '## Section 1.1'),
         (ContentBlockType.heading, 3, '### Subsection 1.1.1'),
@@ -167,7 +167,7 @@ void main() {
     });
 
     test('tracks correct block indices', () {
-      final blocks = _createBlocks([
+      final blocks = createBlocks([
         (ContentBlockType.paragraph, null, 'Intro'),
         (ContentBlockType.heading, 1, '# Title'),
         (ContentBlockType.paragraph, null, 'Content'),

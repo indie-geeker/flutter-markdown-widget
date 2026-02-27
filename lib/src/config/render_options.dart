@@ -160,4 +160,56 @@ class RenderOptions {
           virtualScrollThreshold ?? this.virtualScrollThreshold,
     );
   }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is RenderOptions &&
+          runtimeType == other.runtimeType &&
+          parserMode == other.parserMode &&
+          enableLatex == other.enableLatex &&
+          enableCodeHighlight == other.enableCodeHighlight &&
+          enableTables == other.enableTables &&
+          enableTaskLists == other.enableTaskLists &&
+          enableStrikethrough == other.enableStrikethrough &&
+          enableAutolinks == other.enableAutolinks &&
+          enableImageLoading == other.enableImageLoading &&
+          enableVirtualScrolling == other.enableVirtualScrolling &&
+          selectableText == other.selectableText &&
+          extensionSet == other.extensionSet &&
+          listEquals(customInlineSyntaxes, other.customInlineSyntaxes) &&
+          listEquals(customBlockSyntaxes, other.customBlockSyntaxes) &&
+          parserFactory == other.parserFactory &&
+          onLinkTap == other.onLinkTap &&
+          onImageTap == other.onImageTap &&
+          onCodeCopy == other.onCodeCopy &&
+          maxImageWidth == other.maxImageWidth &&
+          maxImageHeight == other.maxImageHeight &&
+          codeBlockMaxHeight == other.codeBlockMaxHeight &&
+          virtualScrollThreshold == other.virtualScrollThreshold;
+
+  @override
+  int get hashCode => Object.hashAll([
+    parserMode,
+    enableLatex,
+    enableCodeHighlight,
+    enableTables,
+    enableTaskLists,
+    enableStrikethrough,
+    enableAutolinks,
+    enableImageLoading,
+    enableVirtualScrolling,
+    selectableText,
+    extensionSet,
+    Object.hashAll(customInlineSyntaxes ?? const []),
+    Object.hashAll(customBlockSyntaxes ?? const []),
+    parserFactory,
+    onLinkTap,
+    onImageTap,
+    onCodeCopy,
+    maxImageWidth,
+    maxImageHeight,
+    codeBlockMaxHeight,
+    virtualScrollThreshold,
+  ]);
 }

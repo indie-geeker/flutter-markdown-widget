@@ -219,7 +219,9 @@ Thank you for reading! You're now ready to build amazing markdown experiences.
         'It contains repeated paragraphs, lists, and code to build many blocks.',
       );
       buffer.writeln();
-      buffer.writeln('- Bullet A - Bullet B - Bullet C');
+      buffer.writeln('- Bullet A');
+      buffer.writeln('- Bullet B');
+      buffer.writeln('- Bullet C');
       buffer.writeln();
       buffer.writeln('```dart');
       buffer.writeln('final index = $i;');

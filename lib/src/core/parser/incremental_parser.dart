@@ -6,7 +6,6 @@ import 'package:markdown/markdown.dart' as md;
 
 import 'content_block.dart';
 import 'markdown_parser.dart';
-import 'custom_syntaxes.dart';
 
 /// Incremental Markdown parser with caching support.
 ///
@@ -21,7 +20,6 @@ class IncrementalMarkdownParser implements MarkdownParser {
   static final RegExp _blockquote = RegExp(r'^>');
   static final RegExp _unorderedList = RegExp(r'^[\s]*[-*+]\s');
   static final RegExp _orderedList = RegExp(r'^[\s]*\d+\.\s');
-  static final RegExp _tableRow = RegExp(r'^\|.*\|$', multiLine: true);
   static final RegExp _imageLine = RegExp(r'^!\[[^\]]*\]\([^)]+\)$');
   static final RegExp _codeLanguage = RegExp(r'^(`{3,}|~{3,})(\w+)?');
   static final RegExp _codeFenceMatches = RegExp(
@@ -41,14 +39,6 @@ class IncrementalMarkdownParser implements MarkdownParser {
   }) {
     _customBlockSyntaxes = List.unmodifiable(customBlockSyntaxes ?? const []);
     _customInlineSyntaxes = List.unmodifiable(customInlineSyntaxes ?? const []);
-    _blockSyntaxes = [
-      ..._customBlockSyntaxes,
-      if (enableLatex) LatexBlockSyntax(),
-    ];
-    _inlineSyntaxes = [
-      ..._customInlineSyntaxes,
-      if (enableLatex) LatexInlineSyntax(),
-    ];
     if (_customBlockSyntaxes.isNotEmpty || _customInlineSyntaxes.isNotEmpty) {
       _customDocument = md.Document(
         extensionSet: md.ExtensionSet.gitHubFlavored,
@@ -66,8 +56,6 @@ class IncrementalMarkdownParser implements MarkdownParser {
   /// Whether LaTeX parsing is enabled.
   final bool enableLatex;
 
-  late final List<md.BlockSyntax> _blockSyntaxes;
-  late final List<md.InlineSyntax> _inlineSyntaxes;
   late final List<md.BlockSyntax> _customBlockSyntaxes;
   late final List<md.InlineSyntax> _customInlineSyntaxes;
   md.Document? _customDocument;
@@ -82,9 +70,11 @@ class IncrementalMarkdownParser implements MarkdownParser {
   String _lastText = '';
 
   /// Gets the current cached blocks.
+  @override
   List<ContentBlock> get cachedBlocks => List.unmodifiable(_cachedBlocks);
 
   /// Parses text and returns result with change information.
+  @override
   ParseResult parse(String text, {bool isStreaming = false}) {
     if (text == _lastText && !isStreaming) {
       return ParseResult(blocks: _cachedBlocks, modifiedIndices: const {});
@@ -146,6 +136,7 @@ class IncrementalMarkdownParser implements MarkdownParser {
   }
 
   /// Clears all cached state.
+  @override
   void reset() {
     _cachedBlocks.clear();
     _dirtyIndices.clear();
@@ -153,6 +144,7 @@ class IncrementalMarkdownParser implements MarkdownParser {
   }
 
   /// Invalidates cached block at index.
+  @override
   void invalidate(int index) {
     if (index >= 0 && index < _cachedBlocks.length) {
       _dirtyIndices.add(index);
@@ -160,6 +152,7 @@ class IncrementalMarkdownParser implements MarkdownParser {
   }
 
   /// Invalidates all blocks from index onwards.
+  @override
   void invalidateFrom(int startIndex) {
     for (int i = startIndex; i < _cachedBlocks.length; i++) {
       _dirtyIndices.add(i);
@@ -393,8 +386,8 @@ class IncrementalMarkdownParser implements MarkdownParser {
       return ContentBlockType.orderedList;
     }
 
-    // Table (pipe at start of line)
-    if (content.contains('|') && _tableRow.hasMatch(content)) {
+    // Table (GFM): requires header + alignment row.
+    if (_looksLikeGfmTable(content)) {
       return ContentBlockType.table;
     }
 
@@ -478,6 +471,49 @@ class IncrementalMarkdownParser implements MarkdownParser {
     final match = _listDepth.firstMatch(content);
     final indent = match?.group(1)?.length ?? 0;
     return indent ~/ 2;
+  }
+
+  bool _looksLikeGfmTable(String content) {
+    final lines = content
+        .split('\n')
+        .map((line) => line.trimRight())
+        .where((line) => line.trim().isNotEmpty)
+        .toList();
+    if (lines.length < 2) return false;
+
+    final header = lines[0];
+    final alignment = lines[1];
+
+    if (!_looksLikeTableRow(header)) return false;
+    if (!_isAlignmentRow(alignment)) return false;
+
+    return true;
+  }
+
+  bool _looksLikeTableRow(String row) {
+    final cells = _splitTableCells(row);
+    return cells.length >= 2;
+  }
+
+  bool _isAlignmentRow(String row) {
+    final cells = _splitTableCells(row);
+    if (cells.length < 2) return false;
+    return cells.every((cell) {
+      final trimmed = cell.trim();
+      return RegExp(r'^:?-{3,}:?$').hasMatch(trimmed);
+    });
+  }
+
+  List<String> _splitTableCells(String row) {
+    var cleaned = row.trim();
+    if (cleaned.startsWith('|')) {
+      cleaned = cleaned.substring(1);
+    }
+    if (cleaned.endsWith('|')) {
+      cleaned = cleaned.substring(0, cleaned.length - 1);
+    }
+
+    return cleaned.split('|').map((cell) => cell.trim()).toList();
   }
 }
 

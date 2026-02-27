@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - master
+      - 'codex/**'
+  pull_request:
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install package dependencies
+        run: flutter pub get
+
+      - name: Analyze package
+        run: flutter analyze
+
+      - name: Test package
+        run: flutter test
+
+      - name: Run strict performance benchmarks
+        run: flutter test test/benchmark_test.dart --dart-define=BENCHMARK_PROFILE=ci
+
+      - name: Install example dependencies
+        working-directory: example
+        run: flutter pub get
+
+      - name: Analyze example
+        working-directory: example
+        run: flutter analyze
+
+      - name: Test example
+        working-directory: example
+        run: flutter test

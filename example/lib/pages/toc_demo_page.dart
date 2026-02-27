@@ -107,7 +107,8 @@ class _TocDemoPageState extends State<TocDemoPage> {
                 ),
                 Switch.adaptive(
                   value: _syncDuringJump,
-                  activeColor: AppPalette.mint,
+                  activeThumbColor: AppPalette.mint,
+                  activeTrackColor: AppPalette.mint.withValues(alpha: 0.35),
                   onChanged: (value) {
                     setState(() {
                       _syncDuringJump = value;
@@ -200,7 +201,9 @@ class _TocDemoPageState extends State<TocDemoPage> {
                           ),
                           Switch.adaptive(
                             value: _syncDuringJump,
-                            activeColor: AppPalette.mint,
+                            activeThumbColor: AppPalette.mint,
+                            activeTrackColor:
+                                AppPalette.mint.withValues(alpha: 0.35),
                             onChanged: (value) {
                               setState(() {
                                 _syncDuringJump = value;

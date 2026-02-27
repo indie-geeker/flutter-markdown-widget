@@ -20,7 +20,7 @@ class CodeBlockBuilder extends ElementBuilder {
     BuildContext context,
     String content,
     String? language,
-    MarkdownTheme _theme, {
+    MarkdownTheme theme, {
     void Function(String code)? onCopy,
     bool showLineNumbers = true,
     bool showLanguageLabel = true,

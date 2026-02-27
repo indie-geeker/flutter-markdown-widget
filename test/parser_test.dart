@@ -161,6 +161,19 @@ $$''');
         expect(result.blocks, hasLength(1));
         expect(result.blocks[0].type, ContentBlockType.table);
       });
+
+      test('treats single pipe line as paragraph', () {
+        final result = parser.parse('| just text |');
+        expect(result.blocks, hasLength(1));
+        expect(result.blocks[0].type, ContentBlockType.paragraph);
+      });
+
+      test('treats pipe rows without alignment row as paragraph', () {
+        final result = parser.parse('''| Name | Age |
+| Alice | 20 |''');
+        expect(result.blocks, hasLength(1));
+        expect(result.blocks[0].type, ContentBlockType.paragraph);
+      });
     });
 
     group('image parsing', () {
