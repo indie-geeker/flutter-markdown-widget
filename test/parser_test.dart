@@ -44,6 +44,20 @@ void main() {
         expect(result.blocks[0].headingLevel, 1);
       });
 
+      test('separates heading from following paragraph without blank line', () {
+        final result = parser.parse('''# Section 1
+This should be paragraph text.''');
+
+        expect(result.blocks, hasLength(2));
+        expect(result.blocks[0].type, ContentBlockType.heading);
+        expect(result.blocks[0].rawContent.trim(), '# Section 1');
+        expect(result.blocks[1].type, ContentBlockType.paragraph);
+        expect(
+          result.blocks[1].rawContent.trim(),
+          'This should be paragraph text.',
+        );
+      });
+
       test('parses h2 heading', () {
         final result = parser.parse('## Heading 2');
         expect(result.blocks, hasLength(1));
@@ -249,15 +263,28 @@ $$''');
 
     group('streaming mode', () {
       test('detects incomplete code block', () {
-        final result = parser.parse('```dart\nvoid main() {', isStreaming: true);
+        final result = parser.parse(
+          '```dart\nvoid main() {',
+          isStreaming: true,
+        );
         expect(result.incompleteBlock, isNotNull);
-        expect(result.incompleteBlock!.expectedType, ContentBlockType.codeBlock);
+        expect(
+          result.incompleteBlock!.expectedType,
+          ContentBlockType.codeBlock,
+        );
       });
 
       test('detects incomplete LaTeX block', () {
-        final result = parser.parse(r'$$' '\nE = mc^2', isStreaming: true);
+        final result = parser.parse(
+          r'$$'
+          '\nE = mc^2',
+          isStreaming: true,
+        );
         expect(result.incompleteBlock, isNotNull);
-        expect(result.incompleteBlock!.expectedType, ContentBlockType.latexBlock);
+        expect(
+          result.incompleteBlock!.expectedType,
+          ContentBlockType.latexBlock,
+        );
       });
 
       test('no incomplete block for complete content', () {

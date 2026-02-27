@@ -97,6 +97,7 @@ class _MarkdownWidgetState extends State<MarkdownWidget> {
 
   /// Timer for sequential TOC highlighting during jump transitions
   Timer? _transitionTimer;
+  late final TocIndexCallback _jumpToIndexCallback;
 
   List<ContentBlock> _blocks = [];
   final TocGenerator _tocGenerator = TocGenerator(
@@ -106,6 +107,7 @@ class _MarkdownWidgetState extends State<MarkdownWidget> {
   @override
   void initState() {
     super.initState();
+    _jumpToIndexCallback = _jumpToIndex;
     _parser = _createParser();
     _builder = ContentBuilder(
       theme: widget.theme,
@@ -118,7 +120,7 @@ class _MarkdownWidgetState extends State<MarkdownWidget> {
   }
 
   void _setupTocController() {
-    widget.tocController?.jumpToWidgetIndexCallback = _jumpToIndex;
+    widget.tocController?.jumpToWidgetIndexCallback = _jumpToIndexCallback;
   }
 
   void _setupScrollListener() {
@@ -201,7 +203,9 @@ class _MarkdownWidgetState extends State<MarkdownWidget> {
       _cache.clear();
     }
     if (widget.tocController != oldWidget.tocController) {
-      oldWidget.tocController?.jumpToWidgetIndexCallback = null;
+      oldWidget.tocController?.clearJumpToWidgetIndexCallback(
+        _jumpToIndexCallback,
+      );
       _setupTocController();
     }
   }
@@ -290,7 +294,7 @@ class _MarkdownWidgetState extends State<MarkdownWidget> {
           index: blockIndex,
           duration: scrollDuration,
           curve: scrollCurve,
-          alignment: 0.1,
+          alignment: 0.0,
         )
         .then((_) {
           _transitionTimer?.cancel();
@@ -344,7 +348,7 @@ class _MarkdownWidgetState extends State<MarkdownWidget> {
   @override
   void dispose() {
     _transitionTimer?.cancel();
-    widget.tocController?.jumpToWidgetIndexCallback = null;
+    widget.tocController?.clearJumpToWidgetIndexCallback(_jumpToIndexCallback);
     _itemPositionsListener.itemPositions.removeListener(_onVisibleItemsChanged);
     _cache.clear();
     super.dispose();

@@ -263,6 +263,31 @@ class IncrementalMarkdownParser implements MarkdownParser {
       if (inCodeBlock || inLatexBlock) {
         buffer.writeln(line);
       } else {
+        if (line.trim().isNotEmpty && buffer.isNotEmpty) {
+          final bufferedType = _detectBlockType(
+            _RawBlock(
+              content: buffer.toString(),
+              startLine: startLine,
+              endLine: i - 1,
+            ),
+          );
+          final shouldSplitBeforeLine =
+              _isStandaloneBlockType(bufferedType) ||
+              _startsStandaloneBlockLine(line);
+
+          if (shouldSplitBeforeLine) {
+            blocks.add(
+              _RawBlock(
+                content: buffer.toString(),
+                startLine: startLine,
+                endLine: i - 1,
+              ),
+            );
+            buffer.clear();
+            startLine = i;
+          }
+        }
+
         // Split on blank lines for paragraphs
         if (line.trim().isEmpty && buffer.isNotEmpty) {
           blocks.add(
@@ -471,6 +496,25 @@ class IncrementalMarkdownParser implements MarkdownParser {
     final match = _listDepth.firstMatch(content);
     final indent = match?.group(1)?.length ?? 0;
     return indent ~/ 2;
+  }
+
+  bool _isStandaloneBlockType(ContentBlockType type) {
+    switch (type) {
+      case ContentBlockType.heading:
+      case ContentBlockType.horizontalRule:
+      case ContentBlockType.image:
+      case ContentBlockType.thematicBreak:
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  bool _startsStandaloneBlockLine(String line) {
+    final trimmed = line.trim();
+    return _heading.hasMatch(trimmed) ||
+        _horizontalRule.hasMatch(trimmed) ||
+        _imageLine.hasMatch(trimmed);
   }
 
   bool _looksLikeGfmTable(String content) {

@@ -84,6 +84,16 @@ class TocController {
     _jumpToWidgetIndexCallback = callback;
   }
 
+  /// Clears the jump callback only when it matches [callback].
+  ///
+  /// This prevents stale widgets from clearing a newer callback that
+  /// was registered by a replacement MarkdownWidget during layout changes.
+  void clearJumpToWidgetIndexCallback(TocIndexCallback callback) {
+    if (_jumpToWidgetIndexCallback == callback) {
+      _jumpToWidgetIndexCallback = null;
+    }
+  }
+
   /// Adds a listener that is called when the current heading index changes.
   void addIndexListener(TocIndexCallback listener) {
     if (_isDisposed) return;
@@ -123,20 +133,20 @@ class TocController {
   }
 
   /// Scrolls the markdown content to the heading at the specified widget index.
-  /// 
+  ///
   /// During the jump, scroll-based index updates are suppressed to prevent
   /// TOC from highlighting intermediate headings (unless [syncTocDuringJump] is true).
   void jumpToWidgetIndex(int widgetIndex) {
     if (_isDisposed) return;
     _isJumping = true;
-    
+
     // Only update index immediately if NOT in sync mode
     // In sync mode, let the scroll listener handle the gradual updates
     if (!syncTocDuringJump) {
       _currentIndex = widgetIndex;
       notifyIndexChanged(widgetIndex);
     }
-    
+
     _jumpToWidgetIndexCallback?.call(widgetIndex);
   }
 
@@ -146,7 +156,7 @@ class TocController {
   }
 
   /// Whether a programmatic jump is currently in progress.
-  /// 
+  ///
   /// When true, scroll-based TOC updates are suppressed.
   /// In [syncTocDuringJump] mode, Timer handles sequential highlighting instead.
   bool get isJumping => _isJumping;

@@ -50,9 +50,7 @@ void main() {}
       await tester.pumpWidget(
         const MaterialApp(
           home: Scaffold(
-            body: StreamingMarkdownView(
-              content: '```\ncode\n```',
-            ),
+            body: StreamingMarkdownView(content: '```\ncode\n```'),
           ),
         ),
       );
@@ -94,9 +92,7 @@ line3
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
-            body: StreamingMarkdownView.fromStream(
-              stream: controller.stream,
-            ),
+            body: StreamingMarkdownView.fromStream(stream: controller.stream),
           ),
         ),
       );
@@ -116,9 +112,7 @@ line3
         ),
       ];
 
-      final options = RenderOptions(
-        parserFactory: (_) => _StubParser(blocks),
-      );
+      final options = RenderOptions(parserFactory: (_) => _StubParser(blocks));
 
       await tester.pumpWidget(
         MaterialApp(
@@ -165,11 +159,7 @@ line3
     testWidgets('shows typing cursor when configured', (tester) async {
       // Test typing cursor by using static content first
       await tester.pumpWidget(
-        const MaterialApp(
-          home: Scaffold(
-            body: TypingCursor(),
-          ),
-        ),
+        const MaterialApp(home: Scaffold(body: TypingCursor())),
       );
 
       await tester.pump();
@@ -185,10 +175,7 @@ line3
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
-            body: StreamingMarkdownView(
-              content: '# Title',
-              theme: customTheme,
-            ),
+            body: StreamingMarkdownView(content: '# Title', theme: customTheme),
           ),
         ),
       );
@@ -217,7 +204,9 @@ line3
       expect(find.textContaining('E = mc^2'), findsOneWidget);
     });
 
-    testWidgets('renders inline image placeholder when disabled', (tester) async {
+    testWidgets('renders inline image placeholder when disabled', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         const MaterialApp(
           home: Scaffold(
@@ -234,7 +223,9 @@ line3
       expect(find.textContaining('[Image: Alt]'), findsOneWidget);
     });
 
-    testWidgets('falls back to paragraph for malformed table blocks', (tester) async {
+    testWidgets('falls back to paragraph for malformed table blocks', (
+      tester,
+    ) async {
       final blocks = [
         const ContentBlock(
           type: ContentBlockType.table,
@@ -322,9 +313,7 @@ line3
         const MaterialApp(
           home: Scaffold(
             body: SingleChildScrollView(
-              child: MarkdownContent(
-                content: 'Paragraph 1\n\nParagraph 2',
-              ),
+              child: MarkdownContent(content: 'Paragraph 1\n\nParagraph 2'),
             ),
           ),
         ),
@@ -382,10 +371,7 @@ line3
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
-            body: MarkdownContent(
-              content: 'ignored',
-              renderOptions: options1,
-            ),
+            body: MarkdownContent(content: 'ignored', renderOptions: options1),
           ),
         ),
       );
@@ -395,10 +381,7 @@ line3
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
-            body: MarkdownContent(
-              content: 'ignored',
-              renderOptions: options2,
-            ),
+            body: MarkdownContent(content: 'ignored', renderOptions: options2),
           ),
         ),
       );
@@ -434,10 +417,7 @@ line3
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
-            body: MarkdownWidget(
-              data: 'ignored',
-              renderOptions: options1,
-            ),
+            body: MarkdownWidget(data: 'ignored', renderOptions: options1),
           ),
         ),
       );
@@ -447,16 +427,94 @@ line3
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
-            body: MarkdownWidget(
-              data: 'ignored',
-              renderOptions: options2,
-            ),
+            body: MarkdownWidget(data: 'ignored', renderOptions: options2),
           ),
         ),
       );
       await tester.pumpAndSettle();
 
       expect(factoryCalls, 1);
+    });
+
+    testWidgets('toc jump aligns target heading near top', (tester) async {
+      final tocController = TocController();
+      addTearDown(tocController.dispose);
+
+      final chapterOneFiller = List.generate(
+        24,
+        (i) => 'Chapter 1 filler paragraph $i keeps the section tall.',
+      ).join('\n\n');
+      final chapterTwoFiller = List.generate(
+        20,
+        (i) => 'Chapter 2 filler paragraph $i keeps the section tall.',
+      ).join('\n\n');
+      final tailFiller = List.generate(
+        20,
+        (i) => 'Tail filler paragraph $i keeps room below the target heading.',
+      ).join('\n\n');
+
+      final markdown =
+          '''
+# Chapter 1
+
+$chapterOneFiller
+
+# Chapter 2
+
+$chapterTwoFiller
+
+## Section 2.1
+
+This is the target section.
+
+$tailFiller
+''';
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Row(
+              children: [
+                SizedBox(
+                  width: 220,
+                  child: TocListWidget(controller: tocController),
+                ),
+                Expanded(
+                  child: MarkdownWidget(
+                    data: markdown,
+                    tocController: tocController,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      final tocHeadingFinder = find.descendant(
+        of: find.byType(TocListWidget),
+        matching: find.text('Section 2.1'),
+      );
+      expect(tocHeadingFinder, findsOneWidget);
+
+      await tester.tap(tocHeadingFinder);
+      await tester.pumpAndSettle();
+
+      final markdownTop = tester.getTopLeft(find.byType(MarkdownWidget)).dy;
+      final contentHeadingFinder = find.descendant(
+        of: find.byType(MarkdownWidget),
+        matching: find.text('Section 2.1'),
+      );
+      expect(contentHeadingFinder, findsOneWidget);
+
+      final headingTop = tester.getTopLeft(contentHeadingFinder).dy;
+      expect(
+        headingTop - markdownTop,
+        lessThan(50),
+        reason: 'TOC jump should place target heading close to top.',
+      );
     });
   });
 
@@ -470,9 +528,7 @@ line3
 
       await tester.pumpWidget(
         MaterialApp(
-          home: Scaffold(
-            body: TocView(entries: entries),
-          ),
+          home: Scaffold(body: TocView(entries: entries)),
         ),
       );
 
@@ -491,12 +547,7 @@ line3
 
       await tester.pumpWidget(
         MaterialApp(
-          home: Scaffold(
-            body: TocView(
-              entries: entries,
-              activeIndex: 1,
-            ),
-          ),
+          home: Scaffold(body: TocView(entries: entries, activeIndex: 1)),
         ),
       );
 
@@ -539,11 +590,7 @@ line3
   group('TypingCursor', () {
     testWidgets('animates blink', (tester) async {
       await tester.pumpWidget(
-        const MaterialApp(
-          home: Scaffold(
-            body: TypingCursor(),
-          ),
-        ),
+        const MaterialApp(home: Scaffold(body: TypingCursor())),
       );
 
       // Initial state

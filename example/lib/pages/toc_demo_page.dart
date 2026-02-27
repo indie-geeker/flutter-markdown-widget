@@ -32,35 +32,39 @@ class _TocDemoPageState extends State<TocDemoPage> {
   void _openTocSheet() {
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) {
+        final maxSheetHeight = MediaQuery.sizeOf(context).height * 0.82;
+
         return SafeArea(
           child: Padding(
             padding: const EdgeInsets.all(16),
-            child: SurfaceCard(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Padding(
-                    padding: EdgeInsets.fromLTRB(16, 8, 16, 12),
-                    child: SectionHeader(
-                      title: 'Table of Contents',
-                      subtitle: 'Jump to any heading in the document.',
-                      icon: Icons.toc_rounded,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxHeight: maxSheetHeight),
+              child: SurfaceCard(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Column(
+                  children: [
+                    const Padding(
+                      padding: EdgeInsets.fromLTRB(16, 8, 16, 12),
+                      child: SectionHeader(
+                        title: 'Table of Contents',
+                        subtitle: 'Jump to any heading in the document.',
+                        icon: Icons.toc_rounded,
+                      ),
                     ),
-                  ),
-                  const Divider(height: 1),
-                  SizedBox(
-                    height: 360,
-                    child: TocListWidget(
-                      controller: _tocController,
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      activeBackgroundColor:
-                          AppPalette.mint.withValues(alpha: 0.12),
+                    const Divider(height: 1),
+                    Expanded(
+                      child: TocListWidget(
+                        controller: _tocController,
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        activeBackgroundColor:
+                            AppPalette.mint.withValues(alpha: 0.12),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -99,9 +103,7 @@ class _TocDemoPageState extends State<TocDemoPage> {
                   child: Text(
                     'Sync during jump',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context)
-                              .colorScheme
-                              .onSurfaceVariant,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
                   ),
                 ),
