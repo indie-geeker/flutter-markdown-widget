@@ -214,11 +214,6 @@ class _MarkdownWidgetState extends State<MarkdownWidget> {
     final result = _parser.parse(widget.data);
     _blocks = result.blocks;
 
-    // Invalidate changed blocks in cache
-    for (final index in result.modifiedIndices) {
-      _cache.invalidate(index);
-    }
-
     // Update TOC controller after frame to ensure listeners are registered
     if (widget.tocController != null) {
       final tocEntries = _tocGenerator.generate(_blocks);
@@ -379,7 +374,6 @@ class _MarkdownWidgetState extends State<MarkdownWidget> {
         itemBuilder: (context, index) {
           final block = _blocks[index];
           return _cache.getOrBuild(
-            index,
             block.contentHash,
             () => _builder.buildBlock(context, block, resolvedTheme: effectiveTheme),
           );

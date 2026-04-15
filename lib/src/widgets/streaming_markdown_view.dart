@@ -221,11 +221,6 @@ class _StreamingMarkdownViewState extends State<StreamingMarkdownView> {
       _incompleteBlock = result.incompleteBlock;
     });
 
-    // Invalidate changed blocks
-    for (final index in result.modifiedIndices) {
-      _cache.invalidate(index);
-    }
-
     // Auto-scroll to bottom
     if (widget.streamingOptions.autoScrollToBottom && _isReceiving) {
       _scrollToBottom();
@@ -258,9 +253,6 @@ class _StreamingMarkdownViewState extends State<StreamingMarkdownView> {
       _blocks = result.blocks;
       _incompleteBlock = null;
     });
-    for (final index in result.modifiedIndices) {
-      _cache.invalidate(index);
-    }
   }
 
   void _finalizeWithAst() {
@@ -277,9 +269,6 @@ class _StreamingMarkdownViewState extends State<StreamingMarkdownView> {
       _blocks = result.blocks;
       _incompleteBlock = null;
     });
-    for (final index in result.modifiedIndices) {
-      _cache.invalidate(index);
-    }
   }
 
   MarkdownParser _createParser() {
@@ -379,7 +368,6 @@ class _StreamingMarkdownViewState extends State<StreamingMarkdownView> {
 
         final block = displayBlocks[index];
         final built = _cache.getOrBuild(
-          index,
           block.contentHash,
           () => _builder.buildBlock(context, block, resolvedTheme: theme),
         );

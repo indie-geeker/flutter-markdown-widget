@@ -83,10 +83,6 @@ class _MarkdownContentState extends State<MarkdownContent> {
     setState(() {
       _blocks = result.blocks;
     });
-    // Invalidate changed blocks in cache
-    for (final index in result.modifiedIndices) {
-      _cache.invalidate(index);
-    }
     widget.onBlocksGenerated?.call(_blocks);
   }
 
@@ -141,12 +137,8 @@ class _MarkdownContentState extends State<MarkdownContent> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
-              children: _blocks.asMap().entries.map((entry) {
-                final index = entry.key;
-                final block = entry.value;
-
+              children: _blocks.map((block) {
                 return _cache.getOrBuild(
-                  index,
                   block.contentHash,
                   () => _builder.buildBlock(context, block, resolvedTheme: effectiveTheme),
                 );

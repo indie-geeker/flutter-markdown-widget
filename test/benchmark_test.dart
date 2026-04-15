@@ -173,7 +173,7 @@ void main() {
 
       final stopwatch = Stopwatch()..start();
       for (int i = 0; i < iterations; i++) {
-        cache.getOrBuild(i % 100, i * 1000, () => const SizedBox.shrink());
+        cache.getOrBuild((i % 100) * 1000, () => const SizedBox.shrink());
       }
       stopwatch.stop();
 
