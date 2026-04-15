@@ -51,12 +51,14 @@ void main() {
     testWidgets('rapid single-char chunks produce correct final content',
         (tester) async {
       await pumpStreaming(tester);
-      for (final char in 'Hello world'.runes.map(String.fromCharCode)) {
-        controller!.add(char);
+      final content = 'a' * 100; // 100 'a' characters — well above the 100-chunk threshold
+      for (final char in content.runes) {
+        controller!.add(String.fromCharCode(char));
+        await tester.pump(const Duration(milliseconds: 5));
       }
       await controller!.close();
       await tester.pumpAndSettle();
-      expect(find.text('Hello world', findRichText: true), findsOneWidget);
+      expect(find.text(content, findRichText: true), findsOneWidget);
     });
 
     testWidgets('stream error sets widget to non-receiving state',
@@ -75,6 +77,8 @@ void main() {
       // adds (the cursor row is a Padding > Row > TypingCursor).
       // We confirm indirectly: the widget tree is stable and no exception thrown.
       expect(tester.takeException(), isNull);
+      // Partial content sent before the error must still be visible.
+      expect(find.textContaining('Partial content'), findsWidgets);
     });
 
     testWidgets('widget disposal during active stream produces no errors',
@@ -113,6 +117,8 @@ void main() {
       await controller2.close();
       await tester.pumpAndSettle();
       expect(find.text('Second stream', findRichText: true), findsOneWidget);
+      // Stream A's content must no longer be visible after the replacement.
+      expect(find.textContaining('First stream'), findsNothing);
       await controller2.close().catchError((_) {});
     });
 
