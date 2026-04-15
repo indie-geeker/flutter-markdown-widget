@@ -30,6 +30,7 @@ class IncrementalMarkdownParser implements MarkdownParser {
   static final RegExp _headingPrefix = RegExp(r'^(#{1,6})\s');
   static final RegExp _listDepth = RegExp(r'^(\s*)[-*+\d]');
   static final RegExp _openingMarker = RegExp(r'^(`{3,}|~{3,}|\$\$)');
+  static final RegExp _alignmentCell = RegExp(r'^:?-{3,}:?$');
 
   /// Creates an incremental parser with optional configuration.
   IncrementalMarkdownParser({
@@ -544,7 +545,7 @@ class IncrementalMarkdownParser implements MarkdownParser {
     if (cells.length < 2) return false;
     return cells.every((cell) {
       final trimmed = cell.trim();
-      return RegExp(r'^:?-{3,}:?$').hasMatch(trimmed);
+      return _alignmentCell.hasMatch(trimmed);
     });
   }
 
