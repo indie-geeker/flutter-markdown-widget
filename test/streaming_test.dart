@@ -119,7 +119,6 @@ void main() {
       expect(find.text('Second stream', findRichText: true), findsOneWidget);
       // Stream A's content must no longer be visible after the replacement.
       expect(find.textContaining('First stream'), findsNothing);
-      await controller2.close().catchError((_) {});
     });
 
     testWidgets('byLine mode does not render until newline received',
