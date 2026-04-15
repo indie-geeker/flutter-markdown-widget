@@ -250,6 +250,7 @@ class _StreamingMarkdownViewState extends State<StreamingMarkdownView> {
     setState(() {
       _isReceiving = false;
     });
+    _cachedDisplayBlocks = null;
   }
 
   void _parseContent(String content) {
@@ -275,6 +276,7 @@ class _StreamingMarkdownViewState extends State<StreamingMarkdownView> {
       _blocks = result.blocks;
       _incompleteBlock = null;
     });
+    _cachedDisplayBlocks = null;
   }
 
   MarkdownParser _createParser() {
