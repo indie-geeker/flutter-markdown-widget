@@ -148,7 +148,7 @@ class _MarkdownContentState extends State<MarkdownContent> {
                 return _cache.getOrBuild(
                   index,
                   block.contentHash,
-                  () => _builder.buildBlock(context, block),
+                  () => _builder.buildBlock(context, block, resolvedTheme: effectiveTheme),
                 );
               }).toList(),
             ),

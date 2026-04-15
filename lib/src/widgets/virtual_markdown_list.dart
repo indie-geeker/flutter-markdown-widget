@@ -134,16 +134,16 @@ class _VirtualMarkdownListState extends State<VirtualMarkdownList> {
           if (widget.padding != null)
             SliverPadding(
               padding: widget.padding!,
-              sliver: _buildSliverList(context),
+              sliver: _buildSliverList(context, effectiveTheme),
             )
           else
-            _buildSliverList(context),
+            _buildSliverList(context, effectiveTheme),
         ],
       ),
     );
   }
 
-  Widget _buildSliverList(BuildContext context) {
+  Widget _buildSliverList(BuildContext context, MarkdownTheme resolvedTheme) {
     return SliverList(
       delegate: SliverChildBuilderDelegate(
         (context, index) {
@@ -154,6 +154,7 @@ class _VirtualMarkdownListState extends State<VirtualMarkdownList> {
             builder: _builder,
             cache: _cache,
             index: index,
+            resolvedTheme: resolvedTheme,
             isFaded: widget.fadedIndex != null &&
                 widget.fadedIndex == index &&
                 widget.fadedOpacity != null,
@@ -175,6 +176,7 @@ class _BlockItemWidget extends StatelessWidget {
     required this.index,
     required this.isFaded,
     required this.fadedOpacity,
+    this.resolvedTheme,
   });
 
   final ContentBlock block;
@@ -183,13 +185,14 @@ class _BlockItemWidget extends StatelessWidget {
   final int index;
   final bool isFaded;
   final double fadedOpacity;
+  final MarkdownTheme? resolvedTheme;
 
   @override
   Widget build(BuildContext context) {
     Widget child = cache.getOrBuild(
       index,
       block.contentHash,
-      () => builder.buildBlock(context, block),
+      () => builder.buildBlock(context, block, resolvedTheme: resolvedTheme),
     );
 
     if (isFaded) {

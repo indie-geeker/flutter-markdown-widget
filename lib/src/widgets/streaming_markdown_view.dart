@@ -381,7 +381,7 @@ class _StreamingMarkdownViewState extends State<StreamingMarkdownView> {
         final built = _cache.getOrBuild(
           index,
           block.contentHash,
-          () => _builder.buildBlock(context, block),
+          () => _builder.buildBlock(context, block, resolvedTheme: theme),
         );
 
         if (incompleteIndex != null && index == incompleteIndex) {
