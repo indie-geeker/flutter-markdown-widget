@@ -363,6 +363,49 @@ void main() {
       // The formula path should NOT produce a CodeBlockView.
       expect(find.byType(CodeBlockView), findsNothing);
     });
+
+    testWidgets(
+        'malformed LaTeX with enableLatex true renders gracefully (no crash)',
+        (tester) async {
+      // Invalid/malformed LaTeX should not throw; FormulaView catches errors
+      // and renders a fallback error widget (a Container with a Text).
+      await pumpBlock(
+        tester,
+        _makeBlock(ContentBlockType.latexBlock, r'\invalid{latex{'),
+        renderOptions: const RenderOptions(enableLatex: true),
+      );
+
+      // pumpAndSettle completed without throwing, confirming no crash.
+      // The error fallback is a Container wrapping a Text with the raw LaTeX.
+      expect(find.byType(Container), findsWidgets);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // theme styles
+  // -------------------------------------------------------------------------
+  group('theme styles', () {
+    testWidgets('custom textStyle fontSize is applied to paragraph text',
+        (tester) async {
+      const customTheme = MarkdownTheme(
+        textStyle: TextStyle(fontSize: 99.0),
+      );
+
+      // Disable selectableText so the builder emits a RichText that we can
+      // inspect directly.
+      await pumpBlock(
+        tester,
+        _makeBlock(ContentBlockType.paragraph, 'Themed text'),
+        theme: customTheme,
+        renderOptions: const RenderOptions(selectableText: false),
+      );
+
+      // The paragraph builder passes theme.textStyle as baseStyle to the
+      // TextSpan, so the outermost RichText's text style must carry
+      // fontSize 99.0.
+      final richText = tester.widget<RichText>(find.byType(RichText).first);
+      expect(richText.text.style?.fontSize, equals(99.0));
+    });
   });
 
   // -------------------------------------------------------------------------
