@@ -358,7 +358,7 @@ class IncrementalMarkdownParser implements MarkdownParser {
     return ContentBlock(
       type: type,
       rawContent: rawBlock.content,
-      contentHash: rawBlock.content.hashCode,
+      contentHash: Object.hash(type, rawBlock.content),
       startLine: rawBlock.startLine,
       endLine: rawBlock.endLine,
       language: language,
