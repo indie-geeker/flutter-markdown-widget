@@ -248,5 +248,14 @@ void main() {
       buffer.append(' World');
       expect(buffer.length, 11);
     });
+
+    test('respects maxLength and stops appending when limit reached', () {
+      final buffer = TextChunkBuffer(maxLength: 10);
+      buffer.append('hello'); // 5 chars, OK
+      expect(buffer.length, 5);
+      buffer.append('world!'); // 6 chars would exceed 10, should be silently ignored
+      expect(buffer.length, 5);
+      expect(buffer.content, 'hello');
+    });
   });
 }
