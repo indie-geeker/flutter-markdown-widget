@@ -24,6 +24,19 @@ Future<void> pumpMarkdown(
   await tester.pumpAndSettle();
 }
 
+/// Recursively walks all [InlineSpan]s in [span], including container spans
+/// whose [TextSpan.text] is null (which [InlineSpan.visitChildren] skips).
+/// Returns true if [predicate] matches any span.
+bool _anySpan(InlineSpan span, bool Function(TextSpan) predicate) {
+  if (span is TextSpan) {
+    if (predicate(span)) return true;
+    for (final child in span.children ?? <InlineSpan>[]) {
+      if (_anySpan(child, predicate)) return true;
+    }
+  }
+  return false;
+}
+
 void main() {
   group('enableTables', () {
     testWidgets('true (default) — GFM table renders a Table widget', (
@@ -73,6 +86,22 @@ void main() {
       );
 
       expect(find.textContaining('hello'), findsAtLeastNWidgets(1));
+
+      // Positive companion: monospace font MUST be applied when enabled.
+      // The widget uses SelectableText.rich, so walk SelectableText spans.
+      final selectableTexts =
+          tester.widgetList<SelectableText>(find.byType(SelectableText));
+      bool foundMonospace = false;
+      for (final st in selectableTexts) {
+        st.textSpan?.visitChildren((span) {
+          if (span is TextSpan && span.style?.fontFamily == 'monospace') {
+            foundMonospace = true;
+          }
+          return true;
+        });
+      }
+      expect(foundMonospace, isTrue,
+          reason: 'inline code should use monospace font when enableCodeHighlight is true');
     });
 
     testWidgets(
@@ -113,6 +142,22 @@ void main() {
       );
 
       expect(find.textContaining('struck'), findsAtLeastNWidgets(1));
+
+      // Positive companion: lineThrough decoration MUST be present when enabled.
+      // The widget uses SelectableText.rich. The decoration is on a container
+      // span (text=null), so use _anySpan which visits all spans recursively.
+      final selectableTexts =
+          tester.widgetList<SelectableText>(find.byType(SelectableText));
+      final foundLineThrough = selectableTexts.any(
+        (st) =>
+            st.textSpan != null &&
+            _anySpan(
+              st.textSpan!,
+              (s) => s.style?.decoration == TextDecoration.lineThrough,
+            ),
+      );
+      expect(foundLineThrough, isTrue,
+          reason: 'struck text should have lineThrough decoration when enableStrikethrough is true');
     });
 
     testWidgets(
@@ -159,6 +204,23 @@ void main() {
         find.textContaining('https://example.com'),
         findsAtLeastNWidgets(1),
       );
+
+      // Positive companion: underline decoration MUST be present when enabled.
+      // The widget uses SelectableText.rich, so walk SelectableText spans.
+      final selectableTexts =
+          tester.widgetList<SelectableText>(find.byType(SelectableText));
+      bool foundUnderline = false;
+      for (final st in selectableTexts) {
+        st.textSpan?.visitChildren((span) {
+          if (span is TextSpan &&
+              span.style?.decoration == TextDecoration.underline) {
+            foundUnderline = true;
+          }
+          return true;
+        });
+      }
+      expect(foundUnderline, isTrue,
+          reason: 'autolinked URL should have underline decoration when enableAutolinks is true');
     });
 
     testWidgets('false — URL text is still present as plain text', (
