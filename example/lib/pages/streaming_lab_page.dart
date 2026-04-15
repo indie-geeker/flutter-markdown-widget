@@ -67,7 +67,7 @@ class _StreamingLabPageState extends State<StreamingLabPage> {
       if (_disposed || !_isStreaming || _streamController == null) break;
 
       _accumulated += chunk;
-      _streamController!.add(chunk);
+      _streamController?.add(chunk);
 
       if (chunk == '\n') {
         await Future.delayed(Duration(milliseconds: delay * 4));

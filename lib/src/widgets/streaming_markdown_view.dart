@@ -207,6 +207,7 @@ class _StreamingMarkdownViewState extends State<StreamingMarkdownView> {
     _throttleTimer = Timer(
       Duration(milliseconds: widget.streamingOptions.throttleMs),
       () {
+        if (!mounted) return;
         if (_pendingContent.isNotEmpty) {
           _performUpdate();
           _pendingContent = '';
