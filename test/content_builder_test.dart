@@ -376,8 +376,11 @@ void main() {
       );
 
       // pumpAndSettle completed without throwing, confirming no crash.
-      // The error fallback is a Container wrapping a Text with the raw LaTeX.
-      expect(find.byType(Container), findsWidgets);
+      // FormulaView._buildError renders a Text with the cleaned LaTeX source.
+      expect(
+        find.text(r'\invalid{latex{'),
+        findsOneWidget,
+      );
     });
   });
 
@@ -401,9 +404,13 @@ void main() {
       );
 
       // The paragraph builder passes theme.textStyle as baseStyle to the
-      // TextSpan, so the outermost RichText's text style must carry
+      // TextSpan, so the RichText that contains "Themed" must carry
       // fontSize 99.0.
-      final richText = tester.widget<RichText>(find.byType(RichText).first);
+      final richText = tester.widget<RichText>(
+        find.byWidgetPredicate(
+          (w) => w is RichText && w.text.toPlainText().contains('Themed'),
+        ),
+      );
       expect(richText.text.style?.fontSize, equals(99.0));
     });
   });
