@@ -98,6 +98,7 @@ class _StreamingMarkdownViewState extends State<StreamingMarkdownView> {
   bool _isReceiving = false;
   Timer? _throttleTimer;
   String _pendingContent = '';
+  List<ContentBlock>? _cachedDisplayBlocks;
 
   @override
   void initState() {
@@ -220,6 +221,9 @@ class _StreamingMarkdownViewState extends State<StreamingMarkdownView> {
       _blocks = result.blocks;
       _incompleteBlock = result.incompleteBlock;
     });
+    _cachedDisplayBlocks = _shouldRenderIncomplete
+        ? [..._blocks, _createIncompleteDisplayBlock(_incompleteBlock!)]
+        : null;
 
     // Auto-scroll to bottom
     if (widget.streamingOptions.autoScrollToBottom && _isReceiving) {
@@ -232,6 +236,7 @@ class _StreamingMarkdownViewState extends State<StreamingMarkdownView> {
       _isReceiving = false;
       _incompleteBlock = null;
     });
+    _cachedDisplayBlocks = null;
     if (widget.streamingOptions.finalizeWithAst &&
         widget.renderOptions.parserMode == ParserMode.ast) {
       _finalizeWithAst();
@@ -253,6 +258,7 @@ class _StreamingMarkdownViewState extends State<StreamingMarkdownView> {
       _blocks = result.blocks;
       _incompleteBlock = null;
     });
+    _cachedDisplayBlocks = null;
   }
 
   void _finalizeWithAst() {
@@ -311,6 +317,7 @@ class _StreamingMarkdownViewState extends State<StreamingMarkdownView> {
     _throttleTimer?.cancel();
     _buffer.dispose();
     _cache.clear();
+    _cachedDisplayBlocks = null;
     if (widget.controller == null) {
       _scrollController.dispose();
     }
@@ -395,10 +402,7 @@ class _StreamingMarkdownViewState extends State<StreamingMarkdownView> {
       _shouldRenderIncomplete ? _blocks.length : null;
 
   List<ContentBlock> get _displayBlocks {
-    if (!_shouldRenderIncomplete) {
-      return _blocks;
-    }
-    return [..._blocks, _createIncompleteDisplayBlock(_incompleteBlock!)];
+    return _cachedDisplayBlocks ?? _blocks;
   }
 
   ContentBlock _createIncompleteDisplayBlock(IncompleteBlock incomplete) {
