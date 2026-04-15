@@ -85,6 +85,21 @@ void main() {
         );
 
         expect(find.textContaining('hello'), findsAtLeastNWidgets(1));
+
+        // When enableCodeHighlight is false, the code span has no codeStyle
+        // applied (no monospace font or background color).
+        final richTexts = tester.widgetList<RichText>(find.byType(RichText));
+        bool foundMonospace = false;
+        for (final rt in richTexts) {
+          rt.text.visitChildren((span) {
+            if (span is TextSpan && span.style?.fontFamily == 'monospace') {
+              foundMonospace = true;
+            }
+            return true;
+          });
+        }
+        expect(foundMonospace, isFalse,
+            reason: 'No monospace style should be applied when enableCodeHighlight is false');
       },
     );
   });
@@ -110,6 +125,22 @@ void main() {
         );
 
         expect(find.textContaining('struck'), findsAtLeastNWidgets(1));
+
+        // When enableStrikethrough is false, the del element's children are
+        // rendered as plain text with no lineThrough decoration.
+        final richTexts = tester.widgetList<RichText>(find.byType(RichText));
+        bool foundLineThrough = false;
+        for (final rt in richTexts) {
+          rt.text.visitChildren((span) {
+            if (span is TextSpan &&
+                span.style?.decoration == TextDecoration.lineThrough) {
+              foundLineThrough = true;
+            }
+            return true;
+          });
+        }
+        expect(foundLineThrough, isFalse,
+            reason: 'No lineThrough decoration should be present when enableStrikethrough is false');
       },
     );
   });
@@ -143,6 +174,22 @@ void main() {
         find.textContaining('https://example.com'),
         findsAtLeastNWidgets(1),
       );
+
+      // When enableAutolinks is false, the URL is plain text with no link
+      // style (no underline decoration).
+      final richTexts = tester.widgetList<RichText>(find.byType(RichText));
+      bool foundUnderline = false;
+      for (final rt in richTexts) {
+        rt.text.visitChildren((span) {
+          if (span is TextSpan &&
+              span.style?.decoration == TextDecoration.underline) {
+            foundUnderline = true;
+          }
+          return true;
+        });
+      }
+      expect(foundUnderline, isFalse,
+          reason: 'No underline decoration should be present when enableAutolinks is false');
     });
   });
 }
