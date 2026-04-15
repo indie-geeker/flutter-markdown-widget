@@ -4,6 +4,8 @@
 
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
+
 /// Buffer for handling streaming text input.
 ///
 /// Accumulates incoming text chunks and provides methods
@@ -48,14 +50,31 @@ class TextChunkBuffer {
 
   /// Appends a chunk of text to the buffer.
   void append(String chunk) {
-    if (_buffer.length + chunk.length > maxLength) return;
+    if (_buffer.length + chunk.length > maxLength) {
+      assert(() {
+        debugPrint(
+          'TextChunkBuffer: maxLength ($maxLength) reached, chunk dropped.',
+        );
+        return true;
+      }());
+      return;
+    }
     _buffer.write(chunk);
     _textController.add(_buffer.toString());
   }
 
   /// Appends a line of text with newline character.
   void appendLine(String line) {
-    if (_buffer.length + line.length + 1 > maxLength) return; // +1 for the newline
+    if (_buffer.length + line.length + 1 > maxLength) {
+      // +1 for the newline
+      assert(() {
+        debugPrint(
+          'TextChunkBuffer: maxLength ($maxLength) reached, chunk dropped.',
+        );
+        return true;
+      }());
+      return;
+    }
     _buffer.writeln(line);
     _textController.add(_buffer.toString());
   }
@@ -69,7 +88,11 @@ class TextChunkBuffer {
   /// Replaces all content with new text.
   void replaceAll(String newContent) {
     _buffer.clear();
-    _buffer.write(newContent);
+    // Truncate to maxLength if necessary
+    final content = newContent.length > maxLength
+        ? newContent.substring(0, maxLength)
+        : newContent;
+    _buffer.write(content);
     _textController.add(_buffer.toString());
   }
 
