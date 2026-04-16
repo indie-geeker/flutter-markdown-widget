@@ -116,6 +116,52 @@ void main() {
     test('get returns null for unknown hash', () {
       expect(cache.get(9999), isNull);
     });
+
+    test('tracks cache hits', () {
+      final cache = WidgetRenderCache();
+      cache.getOrBuild(111, () => const Text('A'));
+      cache.getOrBuild(111, () => const Text('A'));
+      cache.getOrBuild(111, () => const Text('A'));
+
+      expect(cache.hits, 2);
+      expect(cache.misses, 1);
+    });
+
+    test('tracks cache misses', () {
+      final cache = WidgetRenderCache();
+      cache.getOrBuild(111, () => const Text('A'));
+      cache.getOrBuild(222, () => const Text('B'));
+
+      expect(cache.hits, 0);
+      expect(cache.misses, 2);
+    });
+
+    test('hitRate computes correctly', () {
+      final cache = WidgetRenderCache();
+      cache.getOrBuild(111, () => const Text('A'));
+      cache.getOrBuild(111, () => const Text('A'));
+      cache.getOrBuild(222, () => const Text('B'));
+      cache.getOrBuild(222, () => const Text('B'));
+
+      // 2 misses + 2 hits = 0.5
+      expect(cache.hitRate, 0.5);
+    });
+
+    test('hitRate is zero when empty', () {
+      final cache = WidgetRenderCache();
+      expect(cache.hitRate, 0.0);
+    });
+
+    test('resetStats clears counters', () {
+      final cache = WidgetRenderCache();
+      cache.getOrBuild(111, () => const Text('A'));
+      cache.getOrBuild(111, () => const Text('A'));
+      cache.resetStats();
+
+      expect(cache.hits, 0);
+      expect(cache.misses, 0);
+      expect(cache.hitRate, 0.0);
+    });
   });
 
   group('BlockDimensionEstimator', () {
