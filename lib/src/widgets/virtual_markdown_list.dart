@@ -127,7 +127,7 @@ class _VirtualMarkdownListState extends State<VirtualMarkdownList> {
         (context, index) {
           final block = widget.blocks[index];
           return _BlockItemWidget(
-            key: ValueKey('block_$index'),
+            key: ValueKey(block.contentHash),
             block: block,
             builder: _builder,
             cache: _cache,
@@ -169,13 +169,13 @@ class _BlockItemWidget extends StatelessWidget {
       () => builder.buildBlock(context, block, resolvedTheme: resolvedTheme),
     );
 
-    if (isFaded) {
+    if (isFaded && fadedOpacity < 1.0) {
       child = Opacity(
         opacity: fadedOpacity.clamp(0.0, 1.0),
         child: child,
       );
     }
 
-    return child;
+    return RepaintBoundary(child: child);
   }
 }
