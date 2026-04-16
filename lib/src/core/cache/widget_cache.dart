@@ -53,7 +53,8 @@ class WidgetRenderCache {
 
   /// Gets a cached widget by content hash.
   ///
-  /// Returns null if not cached.
+  /// Returns null if not cached. Does not update [hits]/[misses] counters;
+  /// use [getOrBuild] for stat-tracked lookups.
   Widget? get(int contentHash) {
     final widget = _cache.remove(contentHash);
     if (widget != null) {
