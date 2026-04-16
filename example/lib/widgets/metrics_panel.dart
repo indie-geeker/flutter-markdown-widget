@@ -7,7 +7,7 @@ import 'package:flutter/material.dart';
 import 'performance_monitor.dart';
 import 'surface_card.dart';
 
-/// Displays real-time performance metrics in a compact panel.
+/// Displays real-time performance metrics in a polished dashboard panel.
 class MetricsPanel extends StatelessWidget {
   const MetricsPanel({
     super.key,
@@ -23,29 +23,16 @@ class MetricsPanel extends StatelessWidget {
     return ListenableBuilder(
       listenable: monitor,
       builder: (context, _) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+
         return SurfaceCard(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildRow1(context),
-              const SizedBox(height: 6),
-              _buildRow2(context),
-              const SizedBox(height: 6),
-              _buildRow3(context),
-              const SizedBox(height: 4),
-              Align(
-                alignment: Alignment.centerRight,
-                child: TextButton.icon(
-                  onPressed: onReset,
-                  icon: const Icon(Icons.refresh, size: 16),
-                  label: const Text('Reset'),
-                  style: TextButton.styleFrom(
-                    visualDensity: VisualDensity.compact,
-                    textStyle: const TextStyle(fontSize: 12),
-                  ),
-                ),
-              ),
+              _buildHeader(context, isDark),
+              const SizedBox(height: 12),
+              _buildMetricsGrid(context, isDark),
             ],
           ),
         );
@@ -53,126 +40,269 @@ class MetricsPanel extends StatelessWidget {
     );
   }
 
-  Widget _buildRow1(BuildContext context) {
+  Widget _buildHeader(BuildContext context, bool isDark) {
     return Row(
       children: [
-        _MetricChip(
-          label: 'FPS',
-          value: monitor.fps.toStringAsFixed(1),
-          color: _fpsColor(monitor.fps),
-          flex: 2,
+        Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFF38BDF8), Color(0xFF0EA5E9)],
+            ),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: const Icon(
+            Icons.analytics_rounded,
+            size: 16,
+            color: Colors.white,
+          ),
         ),
-        const SizedBox(width: 8),
-        _MetricChip(
-          label: 'Jank',
-          value: '${monitor.jankCount}',
-          color: monitor.jankCount > 0 ? Colors.orange : Colors.green,
-          flex: 1,
+        const SizedBox(width: 10),
+        Text(
+          'Metrics',
+          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.3,
+              ),
         ),
+        const Spacer(),
+        _StatusIndicator(isRunning: monitor.isRunning, isDark: isDark),
         const SizedBox(width: 8),
-        _MetricChip(
-          label: 'Scroll',
-          value: '${monitor.scrollVelocity.toStringAsFixed(0)} px/s',
-          flex: 2,
+        SizedBox(
+          height: 30,
+          width: 30,
+          child: IconButton(
+            onPressed: onReset,
+            icon: const Icon(Icons.refresh_rounded, size: 16),
+            padding: EdgeInsets.zero,
+            style: IconButton.styleFrom(
+              backgroundColor: isDark
+                  ? Colors.white.withValues(alpha: 0.06)
+                  : Colors.black.withValues(alpha: 0.04),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            tooltip: 'Reset metrics',
+          ),
         ),
       ],
     );
   }
 
-  Widget _buildRow2(BuildContext context) {
-    return Row(
+  Widget _buildMetricsGrid(BuildContext context, bool isDark) {
+    return Column(
       children: [
-        _MetricChip(
-          label: 'Build',
-          value: '${monitor.buildTimeMs.toStringAsFixed(1)} ms',
-          flex: 1,
+        Row(
+          children: [
+            _MetricTile(
+              icon: Icons.speed_rounded,
+              color: _fpsColor(monitor.fps),
+              label: 'FPS',
+              value: monitor.fps.toStringAsFixed(1),
+              isDark: isDark,
+            ),
+            const SizedBox(width: 8),
+            _MetricTile(
+              icon: Icons.warning_amber_rounded,
+              color: monitor.jankCount > 0
+                  ? const Color(0xFFF59E0B)
+                  : const Color(0xFF10B981),
+              label: 'Jank',
+              value: monitor.jankCount.toString(),
+              isDark: isDark,
+            ),
+            const SizedBox(width: 8),
+            _MetricTile(
+              icon: Icons.swap_vert_rounded,
+              color: const Color(0xFF6366F1),
+              label: 'Scroll',
+              value: monitor.scrollVelocity.toStringAsFixed(0),
+              unit: 'px/s',
+              isDark: isDark,
+            ),
+            const SizedBox(width: 8),
+            _MetricTile(
+              icon: Icons.cached_rounded,
+              color: const Color(0xFF0EA5E9),
+              label: 'Cache',
+              value: (monitor.cacheHitRate * 100).toStringAsFixed(0),
+              unit: '%',
+              isDark: isDark,
+            ),
+          ],
         ),
-        const SizedBox(width: 8),
-        _MetricChip(
-          label: 'Raster',
-          value: '${monitor.rasterTimeMs.toStringAsFixed(1)} ms',
-          flex: 1,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildRow3(BuildContext context) {
-    final hitPct = (monitor.cacheHitRate * 100).toStringAsFixed(0);
-    return Row(
-      children: [
-        _MetricChip(
-          label: 'Cache',
-          value: '$hitPct%',
-          flex: 1,
-        ),
-        const SizedBox(width: 8),
-        _MetricChip(
-          label: 'Visible',
-          value: '${monitor.visibleBlocks}',
-          flex: 1,
-        ),
-        const SizedBox(width: 8),
-        _MetricChip(
-          label: 'Total',
-          value: '${monitor.totalBlocks}',
-          flex: 1,
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            _MetricTile(
+              icon: Icons.construction_rounded,
+              color: const Color(0xFFF97316),
+              label: 'Build',
+              value: monitor.buildTimeMs.toStringAsFixed(1),
+              unit: 'ms',
+              isDark: isDark,
+            ),
+            const SizedBox(width: 8),
+            _MetricTile(
+              icon: Icons.brush_rounded,
+              color: const Color(0xFFF43F5E),
+              label: 'Raster',
+              value: monitor.rasterTimeMs.toStringAsFixed(1),
+              unit: 'ms',
+              isDark: isDark,
+            ),
+            const SizedBox(width: 8),
+            _MetricTile(
+              icon: Icons.visibility_rounded,
+              color: const Color(0xFF10B981),
+              label: 'Visible',
+              value: monitor.visibleBlocks.toString(),
+              isDark: isDark,
+            ),
+            const SizedBox(width: 8),
+            _MetricTile(
+              icon: Icons.layers_rounded,
+              color: const Color(0xFF818CF8),
+              label: 'Total',
+              value: '${monitor.totalBlocks}',
+              isDark: isDark,
+            ),
+          ],
         ),
       ],
     );
   }
 
   static Color _fpsColor(double fps) {
-    if (fps >= 55) return Colors.green;
-    if (fps >= 30) return Colors.orange;
-    return Colors.red;
+    if (fps >= 55) return const Color(0xFF10B981);
+    if (fps >= 30) return const Color(0xFFF59E0B);
+    return const Color(0xFFEF4444);
   }
 }
 
-class _MetricChip extends StatelessWidget {
-  const _MetricChip({
-    required this.label,
-    required this.value,
-    this.color,
-    this.flex = 1,
-  });
+class _StatusIndicator extends StatelessWidget {
+  const _StatusIndicator({required this.isRunning, required this.isDark});
 
-  final String label;
-  final String value;
-  final Color? color;
-  final int flex;
+  final bool isRunning;
+  final bool isDark;
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final labelColor = isDark ? Colors.white54 : Colors.black45;
-    final valueColor = color ?? (isDark ? Colors.white : Colors.black87);
+    final color = isRunning ? const Color(0xFF10B981) : Colors.grey;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 6,
+          height: 6,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: color,
+            boxShadow: isRunning
+                ? [BoxShadow(color: color.withValues(alpha: 0.5), blurRadius: 6)]
+                : null,
+          ),
+        ),
+        const SizedBox(width: 5),
+        Text(
+          isRunning ? 'Live' : 'Paused',
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            color: isDark ? Colors.white54 : Colors.black45,
+          ),
+        ),
+      ],
+    );
+  }
+}
 
+class _MetricTile extends StatelessWidget {
+  const _MetricTile({
+    required this.icon,
+    required this.color,
+    required this.label,
+    required this.value,
+    required this.isDark,
+    this.unit,
+  });
+
+  final IconData icon;
+  final Color color;
+  final String label;
+  final String value;
+  final String? unit;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
     return Expanded(
-      flex: flex,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-              color: labelColor,
-              letterSpacing: 0.5,
-            ),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+        decoration: BoxDecoration(
+          color: isDark
+              ? color.withValues(alpha: 0.08)
+              : color.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: color.withValues(alpha: isDark ? 0.15 : 0.12),
           ),
-          const SizedBox(height: 2),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 14,
-              fontFamily: 'monospace',
-              fontWeight: FontWeight.bold,
-              color: valueColor,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(icon, size: 12, color: color),
+                const SizedBox(width: 4),
+                Flexible(
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      color: isDark ? Colors.white54 : Colors.black45,
+                      letterSpacing: 0.3,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
             ),
-          ),
-        ],
+            const SizedBox(height: 6),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              textBaseline: TextBaseline.alphabetic,
+              children: [
+                Flexible(
+                  child: Text(
+                    value,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontFamily: 'monospace',
+                      fontWeight: FontWeight.w700,
+                      color: color,
+                      height: 1,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (unit != null) ...[
+                  const SizedBox(width: 2),
+                  Text(
+                    unit!,
+                    style: TextStyle(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w500,
+                      color: isDark ? Colors.white38 : Colors.black38,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
