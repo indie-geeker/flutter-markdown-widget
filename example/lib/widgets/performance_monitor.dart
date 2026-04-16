@@ -7,12 +7,10 @@ import 'dart:collection';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_markdown_widget/flutter_markdown_widget.dart';
-
 /// Collects real-time performance metrics for the example app dashboard.
 ///
 /// Uses [WidgetsBinding.addTimingsCallback] for frame timing and
-/// accepts external scroll/cache data via update methods.
+/// accepts external scroll data via update methods.
 class PerformanceMonitor extends ChangeNotifier {
   PerformanceMonitor({this.rollingWindowSize = 60});
 
@@ -28,10 +26,6 @@ class PerformanceMonitor extends ChangeNotifier {
   double _scrollVelocity = 0.0;
   DateTime? _lastScrollTime;
   double? _lastScrollOffset;
-
-  // Cache data
-  double _cacheHitRate = 0.0;
-  int _cacheSize = 0;
 
   // Content data
   int _totalBlocks = 0;
@@ -75,6 +69,19 @@ class PerformanceMonitor extends ChangeNotifier {
     return total / _frameTimings.length / 1000.0;
   }
 
+  /// Worst (maximum) frame total span across the rolling window, in
+  /// milliseconds. Complements [buildTimeMs] / [rasterTimeMs] (averages) by
+  /// surfacing the single slowest frame — the most visible cause of jitter.
+  double get worstFrameMs {
+    if (_frameTimings.isEmpty) return 0.0;
+    var maxUs = 0;
+    for (final t in _frameTimings) {
+      final us = t.totalSpan.inMicroseconds;
+      if (us > maxUs) maxUs = us;
+    }
+    return maxUs / 1000.0;
+  }
+
   /// Number of janky frames (total > 16.67ms) since last reset.
   int get jankCount => _jankCount;
 
@@ -83,12 +90,6 @@ class PerformanceMonitor extends ChangeNotifier {
 
   /// Current scroll velocity in pixels per second.
   double get scrollVelocity => _scrollVelocity;
-
-  /// Cache hit rate (0.0 to 1.0).
-  double get cacheHitRate => _cacheHitRate;
-
-  /// Current cache size.
-  int get cacheSize => _cacheSize;
 
   /// Total content blocks in the document.
   int get totalBlocks => _totalBlocks;
@@ -129,8 +130,6 @@ class PerformanceMonitor extends ChangeNotifier {
     _scrollVelocity = 0.0;
     _lastScrollTime = null;
     _lastScrollOffset = null;
-    _cacheHitRate = 0.0;
-    _cacheSize = 0;
     _totalBlocks = 0;
     _visibleBlocks = 0;
     notifyListeners();
@@ -162,12 +161,6 @@ class PerformanceMonitor extends ChangeNotifier {
     if (notification is ScrollEndNotification) {
       _scrollVelocity = 0.0;
     }
-  }
-
-  /// Updates cache stats from an external [WidgetRenderCache].
-  void updateCacheStats(WidgetRenderCache cache) {
-    _cacheHitRate = cache.hitRate;
-    _cacheSize = cache.size;
   }
 
   /// Sets content block counts.

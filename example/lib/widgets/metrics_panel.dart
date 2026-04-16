@@ -91,6 +91,7 @@ class MetricsPanel extends StatelessWidget {
   }
 
   Widget _buildMetricsGrid(BuildContext context, bool isDark) {
+    final worstMs = monitor.worstFrameMs;
     return Column(
       children: [
         Row(
@@ -123,11 +124,11 @@ class MetricsPanel extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             _MetricTile(
-              icon: Icons.cached_rounded,
-              color: const Color(0xFF0EA5E9),
-              label: 'Cache',
-              value: (monitor.cacheHitRate * 100).toStringAsFixed(0),
-              unit: '%',
+              icon: Icons.hourglass_bottom_rounded,
+              color: _worstFrameColor(worstMs),
+              label: 'Worst',
+              value: worstMs.toStringAsFixed(1),
+              unit: 'ms',
               isDark: isDark,
             ),
           ],
@@ -177,6 +178,13 @@ class MetricsPanel extends StatelessWidget {
   static Color _fpsColor(double fps) {
     if (fps >= 55) return const Color(0xFF10B981);
     if (fps >= 30) return const Color(0xFFF59E0B);
+    return const Color(0xFFEF4444);
+  }
+
+  // 16.67ms = 60fps budget. Above that = dropped frame; above 2 budgets = bad.
+  static Color _worstFrameColor(double ms) {
+    if (ms <= 16.67) return const Color(0xFF10B981);
+    if (ms <= 33.34) return const Color(0xFFF59E0B);
     return const Color(0xFFEF4444);
   }
 }

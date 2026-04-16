@@ -46,7 +46,6 @@ class _PerformancePageState extends State<PerformancePage> {
 
   StreamController<String>? _streamController;
   Timer? _streamTimer;
-  Timer? _cacheStatsTimer;
 
   @override
   void initState() {
@@ -58,16 +57,10 @@ class _PerformancePageState extends State<PerformancePage> {
     );
     _monitor.start();
     _estimateBlockCounts();
-    // Sync cache stats into the monitor on a periodic timer, not in build().
-    _cacheStatsTimer = Timer.periodic(
-      const Duration(milliseconds: 500),
-      (_) => _monitor.updateCacheStats(_cache),
-    );
   }
 
   @override
   void dispose() {
-    _cacheStatsTimer?.cancel();
     _stopStreaming();
     _monitor.dispose();
     _cache.clear();
@@ -77,7 +70,6 @@ class _PerformancePageState extends State<PerformancePage> {
   void _regenerateDocument() {
     _stopStreaming();
     _cache.clear();
-    _cache.resetStats();
     setState(() {
       _document = MarkdownSamples.buildPerformanceDocument(
         targetChars: _docSize.targetChars,
@@ -104,7 +96,6 @@ class _PerformancePageState extends State<PerformancePage> {
   void _startStreaming() {
     _stopStreaming();
     _cache.clear();
-    _cache.resetStats();
     _streamController = StreamController<String>();
     int charIndex = 0;
     const chunkSize = 50;
@@ -179,7 +170,6 @@ class _PerformancePageState extends State<PerformancePage> {
                 monitor: _monitor,
                 onReset: () {
                   _monitor.reset();
-                  _cache.resetStats();
                 },
               ),
               const SizedBox(height: 12),
