@@ -9,10 +9,12 @@ import '../core/cache/widget_cache.dart';
 import '../builder/content_builder.dart';
 import '../style/markdown_theme.dart';
 import '../config/render_options.dart';
+import '../core/cache/dimension_estimator.dart';
 
 /// Virtualized list for rendering large markdown content.
 ///
-/// Uses SliverList for efficient rendering of only visible items.
+/// Uses SliverVariedExtentList with dimension estimation for efficient
+/// rendering and stable scroll position during fast scrolling.
 class VirtualMarkdownList extends StatefulWidget {
   /// Creates a virtual markdown list.
   const VirtualMarkdownList({
@@ -24,6 +26,7 @@ class VirtualMarkdownList extends StatefulWidget {
     this.padding,
     this.cacheExtent,
     this.widgetCache,
+    this.dimensionEstimator,
     this.fadedIndex,
     this.fadedOpacity,
   });
@@ -49,6 +52,9 @@ class VirtualMarkdownList extends StatefulWidget {
   /// Optional external widget cache. If provided, the caller owns its lifecycle.
   final WidgetRenderCache? widgetCache;
 
+  /// Optional dimension estimator for height prediction during virtual scrolling.
+  final BlockDimensionEstimator? dimensionEstimator;
+
   /// Optional index to render with reduced opacity (e.g., incomplete block).
   final int? fadedIndex;
 
@@ -63,6 +69,7 @@ class _VirtualMarkdownListState extends State<VirtualMarkdownList> {
   late ContentBuilder _builder;
   late WidgetRenderCache _cache;
   late final bool _ownsCache;
+  late BlockDimensionEstimator _estimator;
 
   @override
   void initState() {
@@ -73,6 +80,7 @@ class _VirtualMarkdownListState extends State<VirtualMarkdownList> {
     );
     _cache = widget.widgetCache ?? WidgetRenderCache();
     _ownsCache = widget.widgetCache == null;
+    _estimator = widget.dimensionEstimator ?? BlockDimensionEstimator();
   }
 
   @override
@@ -87,6 +95,9 @@ class _VirtualMarkdownListState extends State<VirtualMarkdownList> {
     if (widget.theme != oldWidget.theme) {
       _builder = ContentBuilder(theme: widget.theme, renderOptions: widget.renderOptions);
       if (_ownsCache) _cache.clear();
+    }
+    if (widget.dimensionEstimator != oldWidget.dimensionEstimator) {
+      _estimator = widget.dimensionEstimator ?? BlockDimensionEstimator();
     }
   }
 
@@ -128,7 +139,14 @@ class _VirtualMarkdownListState extends State<VirtualMarkdownList> {
   }
 
   Widget _buildSliverList(BuildContext context, MarkdownTheme resolvedTheme) {
-    return SliverList(
+    return SliverVariedExtentList(
+      itemExtentBuilder: (index, dimensions) {
+        if (index < 0 || index >= widget.blocks.length) return null;
+        return _estimator.estimateHeight(
+          widget.blocks[index],
+          availableWidth: dimensions.crossAxisExtent,
+        );
+      },
       delegate: SliverChildBuilderDelegate(
         (context, index) {
           final block = widget.blocks[index];
@@ -138,6 +156,7 @@ class _VirtualMarkdownListState extends State<VirtualMarkdownList> {
             builder: _builder,
             cache: _cache,
             resolvedTheme: resolvedTheme,
+            estimator: _estimator,
             isFaded: widget.fadedIndex != null &&
                 widget.fadedIndex == index &&
                 widget.fadedOpacity != null,
@@ -145,17 +164,27 @@ class _VirtualMarkdownListState extends State<VirtualMarkdownList> {
           );
         },
         childCount: widget.blocks.length,
+        findChildIndexCallback: (key) {
+          if (key is ValueKey<int>) {
+            final hash = key.value;
+            final index =
+                widget.blocks.indexWhere((b) => b.contentHash == hash);
+            return index >= 0 ? index : null;
+          }
+          return null;
+        },
       ),
     );
   }
 }
 
-class _BlockItemWidget extends StatelessWidget {
+class _BlockItemWidget extends StatefulWidget {
   const _BlockItemWidget({
     super.key,
     required this.block,
     required this.builder,
     required this.cache,
+    required this.estimator,
     required this.isFaded,
     required this.fadedOpacity,
     this.resolvedTheme,
@@ -164,24 +193,58 @@ class _BlockItemWidget extends StatelessWidget {
   final ContentBlock block;
   final ContentBuilder builder;
   final WidgetRenderCache cache;
+  final BlockDimensionEstimator estimator;
   final bool isFaded;
   final double fadedOpacity;
   final MarkdownTheme? resolvedTheme;
 
   @override
+  State<_BlockItemWidget> createState() => _BlockItemWidgetState();
+}
+
+class _BlockItemWidgetState extends State<_BlockItemWidget> {
+  final _itemKey = GlobalKey();
+
+  @override
+  void initState() {
+    super.initState();
+    _scheduleHeightMeasurement();
+  }
+
+  void _scheduleHeightMeasurement() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final box = _itemKey.currentContext?.findRenderObject() as RenderBox?;
+      if (box != null && box.hasSize) {
+        widget.estimator.recordActualHeight(
+          widget.block.contentHash,
+          box.size.height,
+        );
+      }
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    Widget child = cache.getOrBuild(
-      block.contentHash,
-      () => builder.buildBlock(context, block, resolvedTheme: resolvedTheme),
+    Widget child = widget.cache.getOrBuild(
+      widget.block.contentHash,
+      () => widget.builder.buildBlock(
+        context,
+        widget.block,
+        resolvedTheme: widget.resolvedTheme,
+      ),
     );
 
-    if (isFaded && fadedOpacity < 1.0) {
+    if (widget.isFaded && widget.fadedOpacity < 1.0) {
       child = Opacity(
-        opacity: fadedOpacity.clamp(0.0, 1.0),
+        opacity: widget.fadedOpacity.clamp(0.0, 1.0),
         child: child,
       );
     }
 
-    return RepaintBoundary(child: child);
+    return RepaintBoundary(
+      key: _itemKey,
+      child: child,
+    );
   }
 }
