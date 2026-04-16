@@ -233,4 +233,90 @@ Thank you for reading! You're now ready to build amazing markdown experiences.
     }
     return buffer.toString();
   }
+
+  /// Builds a mixed-content document targeting a specific character count.
+  ///
+  /// Generates headings, paragraphs with inline formatting, lists, code blocks,
+  /// tables, LaTeX, and horizontal rules for realistic performance testing.
+  static String buildPerformanceDocument({int targetChars = 10000}) {
+    final buffer = StringBuffer();
+    int section = 0;
+
+    while (buffer.length < targetChars) {
+      section++;
+      final mod = section % 6;
+
+      buffer.writeln('# Section $section: Performance Test');
+      buffer.writeln();
+
+      // Paragraph with inline formatting
+      buffer.writeln(
+        'This is paragraph **$section** with *italic text*, `inline code`, '
+        'and a [link](https://example.com/$section). The quick brown fox jumps '
+        'over the lazy dog. Lorem ipsum dolor sit amet, consectetur adipiscing '
+        'elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.',
+      );
+      buffer.writeln();
+
+      if (mod == 0) {
+        // Table section
+        buffer.writeln('| Column A | Column B | Column C | Column D |');
+        buffer.writeln('|----------|----------|----------|----------|');
+        for (int row = 1; row <= 4; row++) {
+          buffer.writeln('| Cell ${section}x$row | Value $row | Data | Result |');
+        }
+        buffer.writeln();
+      } else if (mod == 1) {
+        // Code block
+        buffer.writeln('```dart');
+        buffer.writeln('class Section$section {');
+        buffer.writeln('  final int id = $section;');
+        buffer.writeln('  final String name;');
+        buffer.writeln('');
+        buffer.writeln('  Section$section(this.name);');
+        buffer.writeln('');
+        buffer.writeln('  String describe() {');
+        buffer.writeln("    return 'Section \$id: \$name';");
+        buffer.writeln('  }');
+        buffer.writeln('}');
+        buffer.writeln('```');
+        buffer.writeln();
+      } else if (mod == 2) {
+        // Bullet list
+        buffer.writeln('- First item with **bold** emphasis');
+        buffer.writeln('- Second item with `code` formatting');
+        buffer.writeln('- Third item with *italic* styling');
+        buffer.writeln('- Fourth item linking to [docs](https://example.com)');
+        buffer.writeln('- Fifth item in section $section');
+        buffer.writeln();
+      } else if (mod == 3) {
+        // Numbered list
+        buffer.writeln('1. Step one: Initialize the configuration');
+        buffer.writeln('2. Step two: Parse the markdown input');
+        buffer.writeln('3. Step three: Build the widget tree');
+        buffer.writeln('4. Step four: Render to the screen');
+        buffer.writeln();
+      } else if (mod == 4) {
+        // LaTeX block
+        buffer.writeln(r'Inline math: $E = mc^2$ and $\alpha + \beta = \gamma$');
+        buffer.writeln();
+        buffer.writeln(r'$$');
+        buffer.writeln(r'\sum_{i=1}^{n} x_i = \frac{n(n+1)}{2}');
+        buffer.writeln(r'$$');
+        buffer.writeln();
+      } else {
+        // Blockquote
+        buffer.writeln('> "Performance is not just about speed — it\'s about '
+            'consistency. A smooth 60fps experience builds user trust."');
+        buffer.writeln('>');
+        buffer.writeln('> — Section $section');
+        buffer.writeln();
+      }
+
+      buffer.writeln('---');
+      buffer.writeln();
+    }
+
+    return buffer.toString();
+  }
 }
