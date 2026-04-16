@@ -243,6 +243,39 @@ void main() {
       final height = estimator.getActualHeight(999);
       expect(height, isNull);
     });
+
+    test('estimateHeight returns recorded actual height over estimate', () {
+      final block = ContentBlock(
+        type: ContentBlockType.paragraph,
+        rawContent: 'Short text',
+        contentHash: 42,
+        startLine: 0,
+        endLine: 0,
+      );
+
+      final estimated = estimator.estimateHeight(block);
+      estimator.recordActualHeight(42, 999.0);
+      final afterRecord = estimator.estimateHeight(block);
+
+      expect(afterRecord, 999.0);
+      expect(afterRecord, isNot(equals(estimated)));
+    });
+
+    test('clearMeasurements reverts to estimates', () {
+      final block = ContentBlock(
+        type: ContentBlockType.codeBlock,
+        rawContent: '```\nline1\nline2\nline3\n```',
+        contentHash: 55,
+        startLine: 0,
+        endLine: 4,
+      );
+
+      estimator.recordActualHeight(55, 999.0);
+      expect(estimator.estimateHeight(block), 999.0);
+
+      estimator.clearMeasurements();
+      expect(estimator.estimateHeight(block), isNot(999.0));
+    });
   });
 
   group('TextChunkBuffer', () {
