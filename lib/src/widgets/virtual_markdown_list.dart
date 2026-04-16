@@ -150,7 +150,6 @@ class _VirtualMarkdownListState extends State<VirtualMarkdownList> {
             key: ValueKey(block.contentHash),
             block: block,
             builder: _builder,
-            cache: _cache,
             resolvedTheme: resolvedTheme,
             isFaded: widget.fadedIndex != null &&
                 widget.fadedIndex == index &&
@@ -178,7 +177,6 @@ class _BlockItemWidget extends StatelessWidget {
     super.key,
     required this.block,
     required this.builder,
-    required this.cache,
     required this.isFaded,
     required this.fadedOpacity,
     this.resolvedTheme,
@@ -186,16 +184,23 @@ class _BlockItemWidget extends StatelessWidget {
 
   final ContentBlock block;
   final ContentBuilder builder;
-  final WidgetRenderCache cache;
   final bool isFaded;
   final double fadedOpacity;
   final MarkdownTheme? resolvedTheme;
 
   @override
   Widget build(BuildContext context) {
-    Widget child = cache.getOrBuild(
-      block.contentHash,
-      () => builder.buildBlock(context, block, resolvedTheme: resolvedTheme),
+    // NOTE: widget instances are intentionally not served from
+    // [WidgetRenderCache] here. The same contentHash can appear at multiple
+    // positions (e.g. repeated formulas in a document), and widgets that
+    // contain internal GlobalKeys (such as flutter_math_fork's Math.tex)
+    // cannot be mounted at more than one tree position simultaneously.
+    // Flutter's own Element-tree reuse handles per-position rebuild
+    // optimization; a content-addressed instance cache does not.
+    Widget child = builder.buildBlock(
+      context,
+      block,
+      resolvedTheme: resolvedTheme,
     );
 
     if (isFaded && fadedOpacity < 1.0) {

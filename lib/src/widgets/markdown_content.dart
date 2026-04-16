@@ -138,9 +138,13 @@ class _MarkdownContentState extends State<MarkdownContent> {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: _blocks.map((block) {
-                return _cache.getOrBuild(
-                  block.contentHash,
-                  () => _builder.buildBlock(context, block, resolvedTheme: effectiveTheme),
+                // See [VirtualMarkdownList._BlockItemWidget.build] for why
+                // the widget cache is intentionally bypassed in the render
+                // path.
+                return _builder.buildBlock(
+                  context,
+                  block,
+                  resolvedTheme: effectiveTheme,
                 );
               }).toList(),
             ),

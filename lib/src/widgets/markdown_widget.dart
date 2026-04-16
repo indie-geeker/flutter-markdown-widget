@@ -388,9 +388,12 @@ class _MarkdownWidgetState extends State<MarkdownWidget> {
         itemCount: _blocks.length,
         itemBuilder: (context, index) {
           final block = _blocks[index];
-          return _cache.getOrBuild(
-            block.contentHash,
-            () => _builder.buildBlock(context, block, resolvedTheme: effectiveTheme),
+          // See [VirtualMarkdownList._BlockItemWidget.build] for why the
+          // widget cache is intentionally bypassed in the render path.
+          return _builder.buildBlock(
+            context,
+            block,
+            resolvedTheme: effectiveTheme,
           );
         },
       ),

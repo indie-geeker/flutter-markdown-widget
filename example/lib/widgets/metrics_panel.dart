@@ -98,12 +98,13 @@ class MetricsPanel extends StatelessWidget {
   }
 
   Widget _buildRow3(BuildContext context) {
-    final hitPct = (monitor.cacheHitRate * 100).toStringAsFixed(0);
+    final worstMs = monitor.worstFrameMs;
     return Row(
       children: [
         _MetricChip(
-          label: 'Cache',
-          value: '$hitPct%',
+          label: 'Worst',
+          value: '${worstMs.toStringAsFixed(1)} ms',
+          color: _worstFrameColor(worstMs),
           flex: 1,
         ),
         const SizedBox(width: 8),
@@ -120,6 +121,13 @@ class MetricsPanel extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  static Color _worstFrameColor(double ms) {
+    // 16.67ms = 60fps budget. Anything above is a dropped frame.
+    if (ms <= 16.67) return Colors.green;
+    if (ms <= 33.34) return Colors.orange;
+    return Colors.red;
   }
 
   static Color _fpsColor(double fps) {

@@ -393,10 +393,9 @@ class _StreamingMarkdownViewState extends State<StreamingMarkdownView> {
         }
 
         final block = displayBlocks[index];
-        final built = _cache.getOrBuild(
-          block.contentHash,
-          () => _builder.buildBlock(context, block, resolvedTheme: theme),
-        );
+        // See [VirtualMarkdownList._BlockItemWidget.build] for why the widget
+        // cache is intentionally bypassed in the render path.
+        final built = _builder.buildBlock(context, block, resolvedTheme: theme);
 
         if (incompleteIndex != null && index == incompleteIndex &&
             widget.streamingOptions.incompleteBlockOpacity < 1.0) {
