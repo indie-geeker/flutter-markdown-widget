@@ -12,6 +12,7 @@ import '../core/parser/incremental_parser.dart';
 import '../core/parser/ast_markdown_parser.dart';
 import '../core/parser/text_buffer.dart';
 import '../core/cache/widget_cache.dart';
+import '../core/cache/dimension_estimator.dart';
 import '../builder/content_builder.dart';
 import '../style/markdown_theme.dart';
 import '../config/streaming_options.dart';
@@ -36,6 +37,7 @@ class StreamingMarkdownView extends StatefulWidget {
     this.shrinkWrap = false,
     this.widgetCache,
     this.cacheExtent,
+    this.dimensionEstimator,
   }) : stream = null,
        isStreaming = false;
 
@@ -52,6 +54,7 @@ class StreamingMarkdownView extends StatefulWidget {
     this.shrinkWrap = false,
     this.widgetCache,
     this.cacheExtent,
+    this.dimensionEstimator,
   }) : content = '',
        isStreaming = true;
 
@@ -91,6 +94,10 @@ class StreamingMarkdownView extends StatefulWidget {
   /// Cache extent for off-screen items in virtual scroll mode.
   /// Defaults to 500 pixels.
   final double? cacheExtent;
+
+  /// Optional dimension estimator for pre-computing item heights in virtual scroll mode.
+  /// Improves scroll smoothness by providing height estimates to SliverVariedExtentList.
+  final BlockDimensionEstimator? dimensionEstimator;
 
   @override
   State<StreamingMarkdownView> createState() => _StreamingMarkdownViewState();
@@ -373,6 +380,7 @@ class _StreamingMarkdownViewState extends State<StreamingMarkdownView> {
         padding: widget.padding,
         cacheExtent: widget.cacheExtent,
         widgetCache: widget.widgetCache,
+        dimensionEstimator: widget.dimensionEstimator,
         fadedIndex: incompleteIndex,
         fadedOpacity: widget.streamingOptions.incompleteBlockOpacity,
       );
