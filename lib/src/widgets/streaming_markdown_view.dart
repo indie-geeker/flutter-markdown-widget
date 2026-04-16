@@ -34,6 +34,8 @@ class StreamingMarkdownView extends StatefulWidget {
     this.physics,
     this.padding,
     this.shrinkWrap = false,
+    this.widgetCache,
+    this.cacheExtent,
   }) : stream = null,
        isStreaming = false;
 
@@ -48,6 +50,8 @@ class StreamingMarkdownView extends StatefulWidget {
     this.physics,
     this.padding,
     this.shrinkWrap = false,
+    this.widgetCache,
+    this.cacheExtent,
   }) : content = '',
        isStreaming = true;
 
@@ -81,6 +85,13 @@ class StreamingMarkdownView extends StatefulWidget {
   /// Whether to shrink-wrap content.
   final bool shrinkWrap;
 
+  /// Optional external widget cache. If provided, the caller owns its lifecycle.
+  final WidgetRenderCache? widgetCache;
+
+  /// Cache extent for off-screen items in virtual scroll mode.
+  /// Defaults to 500 pixels.
+  final double? cacheExtent;
+
   @override
   State<StreamingMarkdownView> createState() => _StreamingMarkdownViewState();
 }
@@ -89,6 +100,7 @@ class _StreamingMarkdownViewState extends State<StreamingMarkdownView> {
   late MarkdownParser _parser;
   late ContentBuilder _builder;
   late WidgetRenderCache _cache;
+  late final bool _ownsCache;
   late TextChunkBuffer _buffer;
   late ScrollController _scrollController;
 
@@ -108,7 +120,8 @@ class _StreamingMarkdownViewState extends State<StreamingMarkdownView> {
       theme: widget.theme,
       renderOptions: widget.renderOptions,
     );
-    _cache = WidgetRenderCache();
+    _cache = widget.widgetCache ?? WidgetRenderCache();
+    _ownsCache = widget.widgetCache == null;
     _buffer = TextChunkBuffer();
     _scrollController = widget.controller ?? ScrollController();
 
@@ -131,7 +144,7 @@ class _StreamingMarkdownViewState extends State<StreamingMarkdownView> {
         theme: widget.theme,
         renderOptions: widget.renderOptions,
       );
-      _cache.clear();
+      if (_ownsCache) _cache.clear();
       // Re-parse current content with updated options.
       final currentContent = widget.isStreaming
           ? _buffer.content
@@ -319,7 +332,7 @@ class _StreamingMarkdownViewState extends State<StreamingMarkdownView> {
     _streamSubscription?.cancel();
     _throttleTimer?.cancel();
     _buffer.dispose();
-    _cache.clear();
+    if (_ownsCache) _cache.clear();
     _cachedDisplayBlocks = null;
     if (widget.controller == null) {
       _scrollController.dispose();
@@ -358,6 +371,8 @@ class _StreamingMarkdownViewState extends State<StreamingMarkdownView> {
         renderOptions: widget.renderOptions,
         controller: _scrollController,
         padding: widget.padding,
+        cacheExtent: widget.cacheExtent,
+        widgetCache: widget.widgetCache,
         fadedIndex: incompleteIndex,
         fadedOpacity: widget.streamingOptions.incompleteBlockOpacity,
       );
@@ -382,7 +397,8 @@ class _StreamingMarkdownViewState extends State<StreamingMarkdownView> {
           () => _builder.buildBlock(context, block, resolvedTheme: theme),
         );
 
-        if (incompleteIndex != null && index == incompleteIndex) {
+        if (incompleteIndex != null && index == incompleteIndex &&
+            widget.streamingOptions.incompleteBlockOpacity < 1.0) {
           return Opacity(
             opacity: widget.streamingOptions.incompleteBlockOpacity,
             child: built,

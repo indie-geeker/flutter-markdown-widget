@@ -23,6 +23,7 @@ class VirtualMarkdownList extends StatefulWidget {
     this.controller,
     this.padding,
     this.cacheExtent,
+    this.widgetCache,
     this.fadedIndex,
     this.fadedOpacity,
   });
@@ -45,6 +46,9 @@ class VirtualMarkdownList extends StatefulWidget {
   /// Cache extent for off-screen items.
   final double? cacheExtent;
 
+  /// Optional external widget cache. If provided, the caller owns its lifecycle.
+  final WidgetRenderCache? widgetCache;
+
   /// Optional index to render with reduced opacity (e.g., incomplete block).
   final int? fadedIndex;
 
@@ -58,6 +62,7 @@ class VirtualMarkdownList extends StatefulWidget {
 class _VirtualMarkdownListState extends State<VirtualMarkdownList> {
   late ContentBuilder _builder;
   late WidgetRenderCache _cache;
+  late final bool _ownsCache;
 
   @override
   void initState() {
@@ -66,7 +71,8 @@ class _VirtualMarkdownListState extends State<VirtualMarkdownList> {
       theme: widget.theme,
       renderOptions: widget.renderOptions,
     );
-    _cache = WidgetRenderCache();
+    _cache = widget.widgetCache ?? WidgetRenderCache();
+    _ownsCache = widget.widgetCache == null;
   }
 
   @override
@@ -80,13 +86,13 @@ class _VirtualMarkdownListState extends State<VirtualMarkdownList> {
     }
     if (widget.theme != oldWidget.theme) {
       _builder = ContentBuilder(theme: widget.theme, renderOptions: widget.renderOptions);
-      _cache.clear();
+      if (_ownsCache) _cache.clear();
     }
   }
 
   @override
   void dispose() {
-    _cache.clear();
+    if (_ownsCache) _cache.clear();
     super.dispose();
   }
 
@@ -107,7 +113,7 @@ class _VirtualMarkdownListState extends State<VirtualMarkdownList> {
       theme: effectiveTheme,
       child: CustomScrollView(
         controller: widget.controller,
-        cacheExtent: widget.cacheExtent ?? 250,
+        cacheExtent: widget.cacheExtent ?? 500,
         slivers: [
           if (widget.padding != null)
             SliverPadding(
