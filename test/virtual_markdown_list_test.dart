@@ -41,35 +41,43 @@ void main() {
       expect(find.byType(RepaintBoundary), findsWidgets);
     });
 
-    testWidgets('records actual heights in estimator after layout', (tester) async {
-      final blocks = makeBlocks(3);
-      final estimator = BlockDimensionEstimator();
+    testWidgets('lets children take their natural height (no forced extent)',
+        (tester) async {
+      // Regression test for RenderFlex overflow caused by forcing children to
+      // an estimated height via SliverVariedExtentList. Blocks with the same
+      // type but very different content lengths must each lay out at their
+      // own natural height without clipping or overflow.
+      final blocks = [
+        ContentBlock(
+          type: ContentBlockType.paragraph,
+          rawContent: 'short',
+          contentHash: 1,
+          startLine: 0,
+          endLine: 0,
+        ),
+        ContentBlock(
+          type: ContentBlockType.paragraph,
+          rawContent: List.filled(40, 'word').join(' '),
+          contentHash: 2,
+          startLine: 1,
+          endLine: 1,
+        ),
+      ];
 
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
             body: SizedBox(
-              height: 400,
-              child: VirtualMarkdownList(
-                blocks: blocks,
-                dimensionEstimator: estimator,
-              ),
+              height: 600,
+              child: VirtualMarkdownList(blocks: blocks),
             ),
           ),
         ),
       );
       await tester.pumpAndSettle();
 
-      // After layout, the estimator should have recorded actual heights
-      // for at least the visible blocks
-      bool anyRecorded = false;
-      for (final block in blocks) {
-        if (estimator.getActualHeight(block.contentHash) != null) {
-          anyRecorded = true;
-          break;
-        }
-      }
-      expect(anyRecorded, isTrue);
+      // No rendering exceptions (overflow would surface as an exception).
+      expect(tester.takeException(), isNull);
     });
 
     testWidgets('handles empty blocks', (tester) async {
