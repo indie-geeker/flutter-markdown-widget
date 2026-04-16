@@ -46,6 +46,7 @@ class _PerformancePageState extends State<PerformancePage> {
 
   StreamController<String>? _streamController;
   Timer? _streamTimer;
+  Timer? _cacheStatsTimer;
 
   @override
   void initState() {
@@ -57,10 +58,16 @@ class _PerformancePageState extends State<PerformancePage> {
     );
     _monitor.start();
     _estimateBlockCounts();
+    // Sync cache stats into the monitor on a periodic timer, not in build().
+    _cacheStatsTimer = Timer.periodic(
+      const Duration(milliseconds: 500),
+      (_) => _monitor.updateCacheStats(_cache),
+    );
   }
 
   @override
   void dispose() {
+    _cacheStatsTimer?.cancel();
     _stopStreaming();
     _monitor.dispose();
     _cache.clear();
@@ -91,6 +98,9 @@ class _PerformancePageState extends State<PerformancePage> {
     _monitor.updateBlockCounts(total: total, visible: visible);
   }
 
+  // Each toggle creates a fresh StreamController. _stopStreaming() closes the
+  // old one; StreamingMarkdownView.didUpdateWidget detects the new stream and
+  // resubscribes automatically.
   void _startStreaming() {
     _stopStreaming();
     _cache.clear();
@@ -129,10 +139,6 @@ class _PerformancePageState extends State<PerformancePage> {
     }
   }
 
-  void _updateCacheStats() {
-    _monitor.updateCacheStats(_cache);
-  }
-
   RenderOptions _renderOptions() {
     return RenderOptions(
       enableVirtualScrolling: _enableVirtualScroll,
@@ -146,8 +152,6 @@ class _PerformancePageState extends State<PerformancePage> {
 
   @override
   Widget build(BuildContext context) {
-    _updateCacheStats();
-
     final markdownTheme = ExampleTheme.markdownTheme(
       context,
       accent: AppPalette.accent,

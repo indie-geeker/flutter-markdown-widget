@@ -1,9 +1,12 @@
+// Copyright 2026 The Flutter Markdown Widget Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
 import 'dart:async';
 import 'dart:collection';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
 import 'package:flutter_markdown_widget/flutter_markdown_widget.dart';
 
 /// Collects real-time performance metrics for the example app dashboard.
