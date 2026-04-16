@@ -79,30 +79,8 @@ class _VirtualMarkdownListState extends State<VirtualMarkdownList> {
       );
     }
     if (widget.theme != oldWidget.theme) {
+      _builder = ContentBuilder(theme: widget.theme, renderOptions: widget.renderOptions);
       _cache.clear();
-    }
-    // Detect changed blocks and invalidate cache
-    if (widget.blocks != oldWidget.blocks) {
-      _invalidateChangedBlocks(oldWidget.blocks, widget.blocks);
-    }
-  }
-
-  void _invalidateChangedBlocks(
-    List<ContentBlock> oldBlocks,
-    List<ContentBlock> newBlocks,
-  ) {
-    final maxLen = oldBlocks.length > newBlocks.length
-        ? oldBlocks.length
-        : newBlocks.length;
-
-    for (int i = 0; i < maxLen; i++) {
-      if (i >= oldBlocks.length || i >= newBlocks.length) {
-        _cache.invalidateFrom(i);
-        break;
-      }
-      if (oldBlocks[i].contentHash != newBlocks[i].contentHash) {
-        _cache.invalidate(i);
-      }
     }
   }
 
@@ -134,16 +112,16 @@ class _VirtualMarkdownListState extends State<VirtualMarkdownList> {
           if (widget.padding != null)
             SliverPadding(
               padding: widget.padding!,
-              sliver: _buildSliverList(context),
+              sliver: _buildSliverList(context, effectiveTheme),
             )
           else
-            _buildSliverList(context),
+            _buildSliverList(context, effectiveTheme),
         ],
       ),
     );
   }
 
-  Widget _buildSliverList(BuildContext context) {
+  Widget _buildSliverList(BuildContext context, MarkdownTheme resolvedTheme) {
     return SliverList(
       delegate: SliverChildBuilderDelegate(
         (context, index) {
@@ -153,7 +131,7 @@ class _VirtualMarkdownListState extends State<VirtualMarkdownList> {
             block: block,
             builder: _builder,
             cache: _cache,
-            index: index,
+            resolvedTheme: resolvedTheme,
             isFaded: widget.fadedIndex != null &&
                 widget.fadedIndex == index &&
                 widget.fadedOpacity != null,
@@ -172,24 +150,23 @@ class _BlockItemWidget extends StatelessWidget {
     required this.block,
     required this.builder,
     required this.cache,
-    required this.index,
     required this.isFaded,
     required this.fadedOpacity,
+    this.resolvedTheme,
   });
 
   final ContentBlock block;
   final ContentBuilder builder;
   final WidgetRenderCache cache;
-  final int index;
   final bool isFaded;
   final double fadedOpacity;
+  final MarkdownTheme? resolvedTheme;
 
   @override
   Widget build(BuildContext context) {
     Widget child = cache.getOrBuild(
-      index,
       block.contentHash,
-      () => builder.buildBlock(context, block),
+      () => builder.buildBlock(context, block, resolvedTheme: resolvedTheme),
     );
 
     if (isFaded) {

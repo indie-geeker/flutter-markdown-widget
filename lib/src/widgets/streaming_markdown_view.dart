@@ -98,6 +98,7 @@ class _StreamingMarkdownViewState extends State<StreamingMarkdownView> {
   bool _isReceiving = false;
   Timer? _throttleTimer;
   String _pendingContent = '';
+  List<ContentBlock>? _cachedDisplayBlocks;
 
   @override
   void initState() {
@@ -206,6 +207,7 @@ class _StreamingMarkdownViewState extends State<StreamingMarkdownView> {
     _throttleTimer = Timer(
       Duration(milliseconds: widget.streamingOptions.throttleMs),
       () {
+        if (!mounted) return;
         if (_pendingContent.isNotEmpty) {
           _performUpdate();
           _pendingContent = '';
@@ -220,11 +222,9 @@ class _StreamingMarkdownViewState extends State<StreamingMarkdownView> {
       _blocks = result.blocks;
       _incompleteBlock = result.incompleteBlock;
     });
-
-    // Invalidate changed blocks
-    for (final index in result.modifiedIndices) {
-      _cache.invalidate(index);
-    }
+    _cachedDisplayBlocks = _shouldRenderIncomplete
+        ? [..._blocks, _createIncompleteDisplayBlock(_incompleteBlock!)]
+        : null;
 
     // Auto-scroll to bottom
     if (widget.streamingOptions.autoScrollToBottom && _isReceiving) {
@@ -237,6 +237,7 @@ class _StreamingMarkdownViewState extends State<StreamingMarkdownView> {
       _isReceiving = false;
       _incompleteBlock = null;
     });
+    _cachedDisplayBlocks = null;
     if (widget.streamingOptions.finalizeWithAst &&
         widget.renderOptions.parserMode == ParserMode.ast) {
       _finalizeWithAst();
@@ -250,6 +251,7 @@ class _StreamingMarkdownViewState extends State<StreamingMarkdownView> {
     setState(() {
       _isReceiving = false;
     });
+    _cachedDisplayBlocks = null;
   }
 
   void _parseContent(String content) {
@@ -258,9 +260,7 @@ class _StreamingMarkdownViewState extends State<StreamingMarkdownView> {
       _blocks = result.blocks;
       _incompleteBlock = null;
     });
-    for (final index in result.modifiedIndices) {
-      _cache.invalidate(index);
-    }
+    _cachedDisplayBlocks = null;
   }
 
   void _finalizeWithAst() {
@@ -277,9 +277,7 @@ class _StreamingMarkdownViewState extends State<StreamingMarkdownView> {
       _blocks = result.blocks;
       _incompleteBlock = null;
     });
-    for (final index in result.modifiedIndices) {
-      _cache.invalidate(index);
-    }
+    _cachedDisplayBlocks = null;
   }
 
   MarkdownParser _createParser() {
@@ -322,6 +320,7 @@ class _StreamingMarkdownViewState extends State<StreamingMarkdownView> {
     _throttleTimer?.cancel();
     _buffer.dispose();
     _cache.clear();
+    _cachedDisplayBlocks = null;
     if (widget.controller == null) {
       _scrollController.dispose();
     }
@@ -379,9 +378,8 @@ class _StreamingMarkdownViewState extends State<StreamingMarkdownView> {
 
         final block = displayBlocks[index];
         final built = _cache.getOrBuild(
-          index,
           block.contentHash,
-          () => _builder.buildBlock(context, block),
+          () => _builder.buildBlock(context, block, resolvedTheme: theme),
         );
 
         if (incompleteIndex != null && index == incompleteIndex) {
@@ -407,10 +405,7 @@ class _StreamingMarkdownViewState extends State<StreamingMarkdownView> {
       _shouldRenderIncomplete ? _blocks.length : null;
 
   List<ContentBlock> get _displayBlocks {
-    if (!_shouldRenderIncomplete) {
-      return _blocks;
-    }
-    return [..._blocks, _createIncompleteDisplayBlock(_incompleteBlock!)];
+    return _cachedDisplayBlocks ?? _blocks;
   }
 
   ContentBlock _createIncompleteDisplayBlock(IncompleteBlock incomplete) {

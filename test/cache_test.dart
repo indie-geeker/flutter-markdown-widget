@@ -20,7 +20,7 @@ void main() {
 
     test('stores and retrieves widget', () {
       const widget = Text('Hello');
-      final result = cache.getOrBuild(0, 12345, () => widget);
+      final result = cache.getOrBuild(12345, () => widget);
 
       expect(result, equals(widget));
       expect(cache.size, 1);
@@ -33,8 +33,8 @@ void main() {
         return const Text('Hello');
       }
 
-      cache.getOrBuild(0, 12345, builder);
-      cache.getOrBuild(0, 12345, builder);
+      cache.getOrBuild(12345, builder);
+      cache.getOrBuild(12345, builder);
 
       expect(buildCount, 1);
     });
@@ -46,35 +46,25 @@ void main() {
         return const Text('Hello');
       }
 
-      cache.getOrBuild(0, 12345, builder);
-      cache.getOrBuild(0, 54321, builder);
+      cache.getOrBuild(12345, builder);
+      cache.getOrBuild(54321, builder);
 
       expect(buildCount, 2);
     });
 
-    test('invalidates specific index', () {
-      cache.getOrBuild(0, 111, () => const Text('A'));
-      cache.getOrBuild(1, 222, () => const Text('B'));
-      cache.getOrBuild(2, 333, () => const Text('C'));
+    test('invalidates specific hash', () {
+      cache.getOrBuild(111, () => const Text('A'));
+      cache.getOrBuild(222, () => const Text('B'));
+      cache.getOrBuild(333, () => const Text('C'));
 
-      cache.invalidate(1);
+      cache.invalidate(222);
 
       expect(cache.size, 2);
     });
 
-    test('invalidates from index', () {
-      cache.getOrBuild(0, 111, () => const Text('A'));
-      cache.getOrBuild(1, 222, () => const Text('B'));
-      cache.getOrBuild(2, 333, () => const Text('C'));
-
-      cache.invalidateFrom(1);
-
-      expect(cache.size, 1);
-    });
-
     test('clear removes all', () {
-      cache.getOrBuild(0, 111, () => const Text('A'));
-      cache.getOrBuild(1, 222, () => const Text('B'));
+      cache.getOrBuild(111, () => const Text('A'));
+      cache.getOrBuild(222, () => const Text('B'));
 
       cache.clear();
 
@@ -84,12 +74,47 @@ void main() {
     test('respects max size', () {
       final smallCache = WidgetRenderCache(maxSize: 3);
 
-      smallCache.getOrBuild(0, 111, () => const Text('A'));
-      smallCache.getOrBuild(1, 222, () => const Text('B'));
-      smallCache.getOrBuild(2, 333, () => const Text('C'));
-      smallCache.getOrBuild(3, 444, () => const Text('D'));
+      smallCache.getOrBuild(111, () => const Text('A'));
+      smallCache.getOrBuild(222, () => const Text('B'));
+      smallCache.getOrBuild(333, () => const Text('C'));
+      smallCache.getOrBuild(444, () => const Text('D'));
 
       expect(smallCache.size, 3);
+    });
+
+    test('LRU eviction removes least recently used', () {
+      final smallCache = WidgetRenderCache(maxSize: 3);
+
+      smallCache.getOrBuild(111, () => const Text('A'));
+      smallCache.getOrBuild(222, () => const Text('B'));
+      smallCache.getOrBuild(333, () => const Text('C'));
+      // Access 111 to make it recently used
+      smallCache.getOrBuild(111, () => const Text('A'));
+      // Adding a 4th entry should evict 222 (LRU)
+      smallCache.getOrBuild(444, () => const Text('D'));
+
+      expect(smallCache.size, 3);
+      expect(smallCache.containsValid(222), isFalse);
+      expect(smallCache.containsValid(111), isTrue);
+    });
+
+    test('containsValid returns true for cached hash', () {
+      cache.getOrBuild(999, () => const Text('X'));
+      expect(cache.containsValid(999), isTrue);
+    });
+
+    test('containsValid returns false for missing hash', () {
+      expect(cache.containsValid(9999), isFalse);
+    });
+
+    test('get returns widget for known hash', () {
+      const widget = Text('Hello');
+      cache.put(42, widget);
+      expect(cache.get(42), equals(widget));
+    });
+
+    test('get returns null for unknown hash', () {
+      expect(cache.get(9999), isNull);
     });
   });
 
@@ -222,6 +247,15 @@ void main() {
 
       buffer.append(' World');
       expect(buffer.length, 11);
+    });
+
+    test('respects maxLength and stops appending when limit reached', () {
+      final buffer = TextChunkBuffer(maxLength: 10);
+      buffer.append('hello'); // 5 chars, OK
+      expect(buffer.length, 5);
+      buffer.append('world!'); // 6 chars would exceed 10, should be silently ignored
+      expect(buffer.length, 5);
+      expect(buffer.content, 'hello');
     });
   });
 }

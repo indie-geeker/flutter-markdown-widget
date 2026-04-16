@@ -100,6 +100,7 @@ class _MarkdownWidgetState extends State<MarkdownWidget> {
   late final TocIndexCallback _jumpToIndexCallback;
 
   List<ContentBlock> _blocks = [];
+  List<int> _headingIndices = [];
   final TocGenerator _tocGenerator = TocGenerator(
     config: const TocConfig(buildHierarchy: false),
   );
@@ -179,10 +180,20 @@ class _MarkdownWidgetState extends State<MarkdownWidget> {
       ..sort((a, b) => a.index.compareTo(b.index));
     final firstVisibleIndex = sortedPositions.first.index;
 
-    for (int i = firstVisibleIndex; i >= 0; i--) {
-      if (_blocks[i].type == ContentBlockType.heading) {
-        widget.tocController!.notifyIndexChanged(i);
-        return;
+    // Binary search: find largest heading index <= firstVisibleIndex
+    if (_headingIndices.isNotEmpty) {
+      int lo = 0, hi = _headingIndices.length - 1, result = -1;
+      while (lo <= hi) {
+        final mid = (lo + hi) ~/ 2;
+        if (_headingIndices[mid] <= firstVisibleIndex) {
+          result = _headingIndices[mid];
+          lo = mid + 1;
+        } else {
+          hi = mid - 1;
+        }
+      }
+      if (result >= 0) {
+        widget.tocController!.notifyIndexChanged(result);
       }
     }
   }
@@ -213,11 +224,10 @@ class _MarkdownWidgetState extends State<MarkdownWidget> {
   void _parseContent() {
     final result = _parser.parse(widget.data);
     _blocks = result.blocks;
-
-    // Invalidate changed blocks in cache
-    for (final index in result.modifiedIndices) {
-      _cache.invalidate(index);
-    }
+    _headingIndices = [
+      for (int i = 0; i < _blocks.length; i++)
+        if (_blocks[i].type == ContentBlockType.heading) i,
+    ];
 
     // Update TOC controller after frame to ensure listeners are registered
     if (widget.tocController != null) {
@@ -379,9 +389,8 @@ class _MarkdownWidgetState extends State<MarkdownWidget> {
         itemBuilder: (context, index) {
           final block = _blocks[index];
           return _cache.getOrBuild(
-            index,
             block.contentHash,
-            () => _builder.buildBlock(context, block),
+            () => _builder.buildBlock(context, block, resolvedTheme: effectiveTheme),
           );
         },
       ),

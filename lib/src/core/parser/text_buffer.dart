@@ -4,17 +4,25 @@
 
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
+
 /// Buffer for handling streaming text input.
 ///
 /// Accumulates incoming text chunks and provides methods
 /// to extract complete blocks for parsing.
 class TextChunkBuffer {
+  static final RegExp _codeFencePattern = RegExp(r'^```', multiLine: true);
+  static final RegExp _latexBlockPattern = RegExp(r'^\$\$', multiLine: true);
+
   /// Creates a text buffer with optional initial content.
-  TextChunkBuffer({String? initialContent}) {
+  TextChunkBuffer({String? initialContent, this.maxLength = 5 * 1024 * 1024}) {
     if (initialContent != null) {
       _buffer.write(initialContent);
     }
   }
+
+  /// Maximum number of characters to accumulate. Defaults to 5 MB.
+  final int maxLength;
 
   final StringBuffer _buffer = StringBuffer();
   final StreamController<String> _textController =
@@ -42,12 +50,31 @@ class TextChunkBuffer {
 
   /// Appends a chunk of text to the buffer.
   void append(String chunk) {
+    if (_buffer.length + chunk.length > maxLength) {
+      assert(() {
+        debugPrint(
+          'TextChunkBuffer: maxLength ($maxLength) reached, chunk dropped.',
+        );
+        return true;
+      }());
+      return;
+    }
     _buffer.write(chunk);
     _textController.add(_buffer.toString());
   }
 
   /// Appends a line of text with newline character.
   void appendLine(String line) {
+    if (_buffer.length + line.length + 1 > maxLength) {
+      // +1 for the newline
+      assert(() {
+        debugPrint(
+          'TextChunkBuffer: maxLength ($maxLength) reached, chunk dropped.',
+        );
+        return true;
+      }());
+      return;
+    }
     _buffer.writeln(line);
     _textController.add(_buffer.toString());
   }
@@ -61,7 +88,11 @@ class TextChunkBuffer {
   /// Replaces all content with new text.
   void replaceAll(String newContent) {
     _buffer.clear();
-    _buffer.write(newContent);
+    // Truncate to maxLength if necessary
+    final content = newContent.length > maxLength
+        ? newContent.substring(0, maxLength)
+        : newContent;
+    _buffer.write(content);
     _textController.add(_buffer.toString());
   }
 
@@ -109,14 +140,13 @@ class TextChunkBuffer {
     final text = _buffer.toString();
 
     // Check for unclosed code fence
-    final codeFenceMatches = RegExp(r'^```', multiLine: true).allMatches(text);
+    final codeFenceMatches = _codeFencePattern.allMatches(text);
     if (codeFenceMatches.length.isOdd) {
       return true;
     }
 
     // Check for unclosed LaTeX block
-    final latexBlockMatches =
-        RegExp(r'^\$\$', multiLine: true).allMatches(text);
+    final latexBlockMatches = _latexBlockPattern.allMatches(text);
     if (latexBlockMatches.length.isOdd) {
       return true;
     }

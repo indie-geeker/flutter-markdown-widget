@@ -69,11 +69,21 @@ class ContentBuilder {
   late final md.Document _document;
 
   /// Builds a widget for a content block.
-  Widget buildBlock(BuildContext context, ContentBlock block) {
-    // Get base theme from context (which provides default styles from Flutter's ThemeData)
-    final baseTheme = MarkdownThemeProvider.of(context);
-    // Merge user's theme on top of base theme (user overrides take precedence)
-    final effectiveTheme = theme != null ? baseTheme.merge(theme!) : baseTheme;
+  ///
+  /// If [resolvedTheme] is provided, it is used directly, skipping the
+  /// provider lookup and merge. Pass the pre-resolved theme from the parent
+  /// widget's build method to avoid per-block allocations.
+  Widget buildBlock(
+    BuildContext context,
+    ContentBlock block, {
+    MarkdownTheme? resolvedTheme,
+  }) {
+    // Use the pre-resolved theme if provided; otherwise fall back to resolving
+    // it from the inherited provider (backward-compat for external callers).
+    final effectiveTheme = resolvedTheme ??
+        (theme != null
+            ? MarkdownThemeProvider.of(context).merge(theme!)
+            : MarkdownThemeProvider.of(context));
 
     return switch (block.type) {
       ContentBlockType.paragraph => _buildParagraph(
@@ -168,8 +178,17 @@ class ContentBuilder {
   }
 
   /// Builds a list of widgets from content blocks.
-  List<Widget> buildBlocks(BuildContext context, List<ContentBlock> blocks) {
-    return blocks.map((block) => buildBlock(context, block)).toList();
+  ///
+  /// If [resolvedTheme] is provided, it is forwarded to each [buildBlock]
+  /// call, skipping per-block provider lookups.
+  List<Widget> buildBlocks(
+    BuildContext context,
+    List<ContentBlock> blocks, {
+    MarkdownTheme? resolvedTheme,
+  }) {
+    return blocks
+        .map((block) => buildBlock(context, block, resolvedTheme: resolvedTheme))
+        .toList();
   }
 
   Widget _buildParagraph(
@@ -322,7 +341,7 @@ class ContentBuilder {
       );
     }
 
-    final widget = buildBlock(context, child);
+    final widget = buildBlock(context, child, resolvedTheme: theme);
     if (!isLast || widget is! Padding || widget.padding is! EdgeInsets) {
       return widget;
     }
@@ -899,7 +918,7 @@ class ContentBuilder {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: item.children
-                .map((child) => buildBlock(context, child))
+                .map((child) => buildBlock(context, child, resolvedTheme: theme))
                 .toList(),
           ),
         ),

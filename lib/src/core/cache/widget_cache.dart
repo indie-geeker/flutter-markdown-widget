@@ -4,10 +4,11 @@
 
 import 'package:flutter/widgets.dart';
 
-/// LRU cache for rendered widgets.
+/// LRU cache for rendered widgets, keyed by content hash.
 ///
-/// Caches built widgets by block index to avoid
-/// unnecessary rebuilds during scrolling.
+/// Uses content-addressed keys so that shifted blocks (e.g. after an insert
+/// at the top) still hit the cache — the content hash is unchanged even if
+/// the positional index moves.
 class WidgetRenderCache {
   /// Creates a widget cache with specified maximum size.
   WidgetRenderCache({this.maxSize = 100});
@@ -15,7 +16,7 @@ class WidgetRenderCache {
   /// Maximum number of cached widgets.
   final int maxSize;
 
-  final Map<int, _CacheEntry> _cache = {};
+  final Map<int, Widget> _cache = {};
   final List<int> _accessOrder = [];
 
   /// Number of cached widgets.
@@ -27,67 +28,46 @@ class WidgetRenderCache {
   /// Whether the cache has entries.
   bool get isNotEmpty => _cache.isNotEmpty;
 
-  /// Gets a cached widget by block index.
+  /// Gets a cached widget by content hash.
   ///
   /// Returns null if not cached.
-  Widget? get(int blockIndex) {
-    final entry = _cache[blockIndex];
-    if (entry != null) {
-      _updateAccessOrder(blockIndex);
-      return entry.widget;
+  Widget? get(int contentHash) {
+    if (_cache.containsKey(contentHash)) {
+      _updateAccessOrder(contentHash);
+      return _cache[contentHash];
     }
     return null;
   }
 
-  /// Gets or builds a widget for the given block index.
+  /// Gets or builds a widget for the given content hash.
   ///
-  /// If cached and hash matches, returns cached widget.
-  /// Otherwise, builds new widget and caches it.
-  Widget getOrBuild(
-    int blockIndex,
-    int contentHash,
-    Widget Function() builder,
-  ) {
-    final entry = _cache[blockIndex];
-
-    if (entry != null && entry.contentHash == contentHash) {
-      _updateAccessOrder(blockIndex);
-      return entry.widget;
+  /// If a cached widget exists for [contentHash], returns it.
+  /// Otherwise, builds a new widget and caches it.
+  Widget getOrBuild(int contentHash, Widget Function() builder) {
+    if (_cache.containsKey(contentHash)) {
+      _updateAccessOrder(contentHash);
+      return _cache[contentHash]!;
     }
-
     final widget = builder();
-    put(blockIndex, widget, contentHash);
+    _put(contentHash, widget);
     return widget;
   }
 
-  /// Caches a widget for the given block index.
-  void put(int blockIndex, Widget widget, int contentHash) {
-    // Evict if necessary
+  void _put(int contentHash, Widget widget) {
     while (_cache.length >= maxSize) {
       _evictLeastRecentlyUsed();
     }
-
-    _cache[blockIndex] = _CacheEntry(
-      widget: widget,
-      contentHash: contentHash,
-    );
-    _updateAccessOrder(blockIndex);
+    _cache[contentHash] = widget;
+    _updateAccessOrder(contentHash);
   }
 
-  /// Invalidates cached widget at block index.
-  void invalidate(int blockIndex) {
-    _cache.remove(blockIndex);
-    _accessOrder.remove(blockIndex);
-  }
+  /// Caches a widget for the given content hash.
+  void put(int contentHash, Widget widget) => _put(contentHash, widget);
 
-  /// Invalidates all widgets from block index onwards.
-  void invalidateFrom(int startIndex) {
-    final keysToRemove =
-        _cache.keys.where((k) => k >= startIndex).toList();
-    for (final key in keysToRemove) {
-      _cache.remove(key);
-      _accessOrder.remove(key);
-    }
+  /// Removes the cached widget for the given content hash.
+  void invalidate(int contentHash) {
+    _cache.remove(contentHash);
+    _accessOrder.remove(contentHash);
   }
 
   /// Invalidates all cached widgets.
@@ -96,32 +76,18 @@ class WidgetRenderCache {
     _accessOrder.clear();
   }
 
-  /// Checks if block is cached with matching hash.
-  bool containsValid(int blockIndex, int contentHash) {
-    final entry = _cache[blockIndex];
-    return entry != null && entry.contentHash == contentHash;
-  }
+  /// Returns true if there is a cached widget for [contentHash].
+  bool containsValid(int contentHash) => _cache.containsKey(contentHash);
 
-  void _updateAccessOrder(int blockIndex) {
-    _accessOrder.remove(blockIndex);
-    _accessOrder.add(blockIndex);
+  void _updateAccessOrder(int contentHash) {
+    _accessOrder.remove(contentHash);
+    _accessOrder.add(contentHash);
   }
 
   void _evictLeastRecentlyUsed() {
     if (_accessOrder.isNotEmpty) {
-      final lruIndex = _accessOrder.removeAt(0);
-      _cache.remove(lruIndex);
+      final lru = _accessOrder.removeAt(0);
+      _cache.remove(lru);
     }
   }
-}
-
-/// Cache entry for a single widget.
-class _CacheEntry {
-  const _CacheEntry({
-    required this.widget,
-    required this.contentHash,
-  });
-
-  final Widget widget;
-  final int contentHash;
 }
