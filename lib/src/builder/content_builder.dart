@@ -548,10 +548,43 @@ class ContentBuilder {
       );
     }
 
+    final placeholderHeight = renderOptions.imagePlaceholderHeight;
     Widget image = Image.network(
       src,
       fit: BoxFit.contain,
-      errorBuilder: (_, __, ___) => Text('[Failed to load: $alt]'),
+      loadingBuilder: (context, child, progress) {
+        if (progress == null) {
+          // Fully loaded — return child at its intrinsic size.
+          return child;
+        }
+        return SizedBox(
+          height: placeholderHeight,
+          child: Center(
+            child: SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                value: progress.expectedTotalBytes == null
+                    ? null
+                    : progress.cumulativeBytesLoaded /
+                        progress.expectedTotalBytes!,
+              ),
+            ),
+          ),
+        );
+      },
+      frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+        if (wasSynchronouslyLoaded || frame != null) {
+          return child;
+        }
+        // Still waiting for the first frame — reserve placeholder space.
+        return SizedBox(height: placeholderHeight);
+      },
+      errorBuilder: (_, __, ___) => SizedBox(
+        height: placeholderHeight,
+        child: Center(child: Text('[Failed to load: $alt]')),
+      ),
     );
 
     if (renderOptions.maxImageWidth != null ||
