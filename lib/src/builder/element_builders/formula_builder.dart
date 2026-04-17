@@ -16,9 +16,23 @@ class FormulaBuilder extends ElementBuilder {
   /// Whether this is a block-level formula.
   final bool isBlock;
 
-  @override
-  Widget build(BuildContext context, String content, MarkdownTheme theme) {
-    // Clean up content - remove $$ or $ markers
+  static final RegExp _blockNewlineRun = RegExp(r'\n\s*');
+  static final Map<String, String> _cleanCache = <String, String>{};
+
+  /// Visible for tests — do not use in production code.
+  @visibleForTesting
+  static String debugCleanLatex(String content, {required bool isBlock}) =>
+      _cleanLatex(content, isBlock: isBlock);
+
+  /// Visible for tests — do not use in production code.
+  @visibleForTesting
+  static void debugClearCleanCache() => _cleanCache.clear();
+
+  static String _cleanLatex(String content, {required bool isBlock}) {
+    final cacheKey = isBlock ? 'B:$content' : 'I:$content';
+    final cached = _cleanCache[cacheKey];
+    if (cached != null) return cached;
+
     String latex = content.trim();
     if (latex.startsWith(r'$$')) {
       latex = latex.substring(2);
@@ -33,12 +47,19 @@ class FormulaBuilder extends ElementBuilder {
     }
     latex = latex.trim();
 
-    // Handle multiline LaTeX blocks
     if (isBlock) {
-      latex = latex.replaceAll(RegExp(r'\n\s*'), ' ');
+      latex = latex.replaceAll(_blockNewlineRun, ' ');
     }
 
-    final textColor = theme.textStyle?.color ?? 
+    _cleanCache[cacheKey] = latex;
+    return latex;
+  }
+
+  @override
+  Widget build(BuildContext context, String content, MarkdownTheme theme) {
+    final latex = _cleanLatex(content, isBlock: isBlock);
+
+    final textColor = theme.textStyle?.color ??
         Theme.of(context).textTheme.bodyMedium?.color;
 
     try {
@@ -70,7 +91,7 @@ class FormulaBuilder extends ElementBuilder {
 
   Widget _buildErrorWidget(BuildContext context, String latex, dynamic error) {
     final errorColor = Theme.of(context).colorScheme.error;
-    
+
     return Container(
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
