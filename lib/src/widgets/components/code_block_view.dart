@@ -48,6 +48,25 @@ class CodeBlockView extends StatefulWidget {
 }
 
 class _CodeBlockViewState extends State<CodeBlockView> {
+  static const TextStyle _languageLabelStyle = TextStyle(
+    fontSize: 12,
+    color: Color(0xFF9E9E9E), // Colors.grey[500]
+    fontWeight: FontWeight.w500,
+    letterSpacing: 0.5,
+  );
+
+  static const TextStyle _copyButtonIdleStyle = TextStyle(
+    fontSize: 12,
+    color: Color(0xFF9E9E9E), // Colors.grey[500]
+  );
+
+  static const TextStyle _copyButtonDoneStyle = TextStyle(
+    fontSize: 12,
+    color: Colors.green,
+  );
+
+  static const Color _lineNumberColor = Color(0xFF757575); // Colors.grey[600]
+
   bool _copied = false;
 
   Future<void> _copyCode() async {
@@ -104,12 +123,7 @@ class _CodeBlockViewState extends State<CodeBlockView> {
                               ? widget.language!
                               : 'code')
                           .toUpperCase(),
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey[500],
-                        fontWeight: FontWeight.w500,
-                        letterSpacing: 0.5,
-                      ),
+                      style: _languageLabelStyle,
                     )
                   else
                     const SizedBox.shrink(),
@@ -138,15 +152,12 @@ class _CodeBlockViewState extends State<CodeBlockView> {
               Icon(
                 _copied ? Icons.check : Icons.copy,
                 size: 16,
-                color: _copied ? Colors.green : Colors.grey[500],
+                color: _copied ? Colors.green : const Color(0xFF9E9E9E),
               ),
               const SizedBox(width: 4),
               Text(
                 _copied ? 'Copied!' : 'Copy',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: _copied ? Colors.green : Colors.grey[500],
-                ),
+                style: _copied ? _copyButtonDoneStyle : _copyButtonIdleStyle,
               ),
             ],
           ),
@@ -160,6 +171,7 @@ class _CodeBlockViewState extends State<CodeBlockView> {
 
     if (widget.showLineNumbers) {
       final lineHeight = (codeStyle.fontSize ?? 14) * (codeStyle.height ?? 1.5);
+      final lineNumberStyle = codeStyle.copyWith(color: _lineNumberColor);
       content = Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
@@ -172,10 +184,7 @@ class _CodeBlockViewState extends State<CodeBlockView> {
               lines.length,
               (i) => SizedBox(
                 height: lineHeight,
-                child: Text(
-                  '${i + 1}',
-                  style: codeStyle.copyWith(color: Colors.grey[600]),
-                ),
+                child: Text('${i + 1}', style: lineNumberStyle),
               ),
             ),
           ),
