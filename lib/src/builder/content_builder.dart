@@ -21,6 +21,19 @@ import 'element_builders/table_builder.dart';
 /// Converts markdown AST nodes into Flutter widgets
 /// using the provided theme and configuration.
 class ContentBuilder {
+  static final RegExp _headingPrefix = RegExp(r'^#{1,6}\s+');
+  static final RegExp _blockquotePrefix = RegExp(r'^>\s?');
+  static final RegExp _listItemPrefix = RegExp(r'^[\s]*[-*+\d.]+\s+');
+  static final RegExp _imageInline = RegExp(r'!\[([^\]]*)\]\(([^)]+)\)');
+  static final RegExp _orderedListPattern =
+      RegExp(r'^\s*\d+\.\s+', multiLine: true);
+  static final RegExp _unorderedListPattern =
+      RegExp(r'^\s*[-*+]\s+', multiLine: true);
+  static final RegExp _orderedTaskPattern =
+      RegExp(r'^\s*\d+\.\s+\[( |x|X)\]\s+');
+  static final RegExp _unorderedTaskPattern =
+      RegExp(r'^\s*[-*+]\s+\[( |x|X)\]\s+');
+
   /// Creates a content builder.
   ContentBuilder({
     this.theme,
@@ -220,7 +233,7 @@ class ContentBuilder {
   ) {
     final level = block.headingLevel ?? 1;
     final text = block.rawContent
-        .replaceFirst(RegExp(r'^#{1,6}\s+'), '')
+        .replaceFirst(_headingPrefix, '')
         .trim();
     final style = theme.headingStyle(level);
     final inlineSpan = _buildInlineSpanFromBlock(
@@ -275,7 +288,7 @@ class ContentBuilder {
             context,
             block.rawContent
                 .split('\n')
-                .map((line) => line.replaceFirst(RegExp(r'^>\s?'), ''))
+                .map((line) => line.replaceFirst(_blockquotePrefix, ''))
                 .join('\n')
                 .trim(),
             theme,
@@ -456,10 +469,7 @@ class ContentBuilder {
     ContentBlock block,
     MarkdownTheme theme,
   ) {
-    final text = block.rawContent.replaceFirst(
-      RegExp(r'^[\s]*[-*+\d.]+\s+'),
-      '',
-    );
+    final text = block.rawContent.replaceFirst(_listItemPrefix, '');
     final inlineSpan = _buildInlineSpan(
       context,
       text,
@@ -523,9 +533,7 @@ class ContentBuilder {
     String src = ast?.imageSrc ?? '';
 
     if (src.isEmpty) {
-      final match = RegExp(
-        r'!\[([^\]]*)\]\(([^)]+)\)',
-      ).firstMatch(block.rawContent);
+      final match = _imageInline.firstMatch(block.rawContent);
       if (match == null) {
         return const SizedBox.shrink();
       }
@@ -778,12 +786,9 @@ class ContentBuilder {
     required bool ordered,
     required bool enableTaskLists,
   }) {
-    final pattern = ordered
-        ? RegExp(r'^\s*\d+\.\s+', multiLine: true)
-        : RegExp(r'^\s*[-*+]\s+', multiLine: true);
-    final taskPattern = ordered
-        ? RegExp(r'^\s*\d+\.\s+\[( |x|X)\]\s+')
-        : RegExp(r'^\s*[-*+]\s+\[( |x|X)\]\s+');
+    final pattern = ordered ? _orderedListPattern : _unorderedListPattern;
+    final taskPattern =
+        ordered ? _orderedTaskPattern : _unorderedTaskPattern;
 
     return content
         .split('\n')
