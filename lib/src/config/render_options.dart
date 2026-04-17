@@ -40,6 +40,7 @@ class RenderOptions {
     this.onCodeCopy,
     this.maxImageWidth,
     this.maxImageHeight,
+    this.imagePlaceholderHeight = 200.0,
     this.codeBlockMaxHeight,
     this.virtualScrollThreshold = 20,
   });
@@ -104,6 +105,12 @@ class RenderOptions {
   /// Maximum height for images.
   final double? maxImageHeight;
 
+  /// Height reserved for network images while they are loading.
+  ///
+  /// A fixed placeholder avoids scroll-position jumps when an image
+  /// finishes loading inside a scrollable list.
+  final double imagePlaceholderHeight;
+
   /// Maximum height for code blocks before scrolling.
   final double? codeBlockMaxHeight;
 
@@ -131,6 +138,7 @@ class RenderOptions {
     void Function(String code, String? language)? onCodeCopy,
     double? maxImageWidth,
     double? maxImageHeight,
+    double? imagePlaceholderHeight,
     double? codeBlockMaxHeight,
     int? virtualScrollThreshold,
   }) {
@@ -155,6 +163,8 @@ class RenderOptions {
       onCodeCopy: onCodeCopy ?? this.onCodeCopy,
       maxImageWidth: maxImageWidth ?? this.maxImageWidth,
       maxImageHeight: maxImageHeight ?? this.maxImageHeight,
+      imagePlaceholderHeight:
+          imagePlaceholderHeight ?? this.imagePlaceholderHeight,
       codeBlockMaxHeight: codeBlockMaxHeight ?? this.codeBlockMaxHeight,
       virtualScrollThreshold:
           virtualScrollThreshold ?? this.virtualScrollThreshold,
@@ -185,6 +195,7 @@ class RenderOptions {
           onCodeCopy == other.onCodeCopy &&
           maxImageWidth == other.maxImageWidth &&
           maxImageHeight == other.maxImageHeight &&
+          imagePlaceholderHeight == other.imagePlaceholderHeight &&
           codeBlockMaxHeight == other.codeBlockMaxHeight &&
           virtualScrollThreshold == other.virtualScrollThreshold;
 
@@ -209,6 +220,7 @@ class RenderOptions {
     onCodeCopy,
     maxImageWidth,
     maxImageHeight,
+    imagePlaceholderHeight,
     codeBlockMaxHeight,
     virtualScrollThreshold,
   ]);

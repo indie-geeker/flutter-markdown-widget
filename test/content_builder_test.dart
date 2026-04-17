@@ -328,6 +328,46 @@ void main() {
       // request never completes in the test environment.
       expect(find.byType(Image), findsOneWidget);
     });
+
+    testWidgets(
+        'enableImageLoading true reserves placeholder height while loading',
+        (tester) async {
+      await pumpBlock(
+        tester,
+        _makeBlock(
+          ContentBlockType.image,
+          '![alt text](https://example.com/img.png)',
+        ),
+        renderOptions:
+            const RenderOptions(enableImageLoading: true),
+      );
+
+      // Before the network frame arrives, a SizedBox with the default
+      // placeholder height (200) must be present.
+      final placeholders = find.byWidgetPredicate((w) =>
+          w is SizedBox && w.height == 200.0);
+      expect(placeholders, findsWidgets);
+    });
+
+    testWidgets(
+        'imagePlaceholderHeight override is honoured',
+        (tester) async {
+      await pumpBlock(
+        tester,
+        _makeBlock(
+          ContentBlockType.image,
+          '![alt text](https://example.com/img.png)',
+        ),
+        renderOptions: const RenderOptions(
+          enableImageLoading: true,
+          imagePlaceholderHeight: 123.0,
+        ),
+      );
+
+      final placeholders = find.byWidgetPredicate((w) =>
+          w is SizedBox && w.height == 123.0);
+      expect(placeholders, findsWidgets);
+    });
   });
 
   // -------------------------------------------------------------------------
