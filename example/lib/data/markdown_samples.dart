@@ -234,11 +234,22 @@ Thank you for reading! You're now ready to build amazing markdown experiences.
     return buffer.toString();
   }
 
+  static const List<String> _perfImageUrls = [
+    'https://images.unsplash.com/photo-1496307042754-b4aa456c4a2d?auto=format&fit=crop&w=1200&q=80',
+    'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1200&q=80',
+    'https://images.unsplash.com/photo-1519681393784-d120267933ba?auto=format&fit=crop&w=1200&q=80',
+    'https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=1200&q=80',
+  ];
+
   /// Builds a mixed-content document targeting a specific character count.
   ///
   /// Generates headings, paragraphs with inline formatting, lists, code blocks,
   /// tables, LaTeX, and horizontal rules for realistic performance testing.
-  static String buildPerformanceDocument({int targetChars = 10000}) {
+  /// When [includeImages] is true, injects an image roughly every 6 sections.
+  static String buildPerformanceDocument({
+    int targetChars = 10000,
+    bool includeImages = false,
+  }) {
     final buffer = StringBuffer();
     int section = 0;
 
@@ -310,6 +321,12 @@ Thank you for reading! You're now ready to build amazing markdown experiences.
             'consistency. A smooth 60fps experience builds user trust."');
         buffer.writeln('>');
         buffer.writeln('> — Section $section');
+        buffer.writeln();
+      }
+
+      if (includeImages && section % 6 == 0) {
+        final url = _perfImageUrls[(section ~/ 6) % _perfImageUrls.length];
+        buffer.writeln('![Scenery $section]($url)');
         buffer.writeln();
       }
 
