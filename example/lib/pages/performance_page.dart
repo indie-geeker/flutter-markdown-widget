@@ -77,6 +77,7 @@ class _PerformancePageState extends State<PerformancePage> {
     setState(() {
       _document = MarkdownSamples.buildPerformanceDocument(
         targetChars: _docSize.targetChars,
+        includeImages: _includeImages,
       );
     });
     _estimateBlockCounts();

@@ -141,13 +141,35 @@ class _VirtualMarkdownListState extends State<VirtualMarkdownList> {
     );
   }
 
+  /// Generates composite `(hash, occurrence)` keys so that blocks sharing the
+  /// same [ContentBlock.contentHash] (e.g. repeated `---` separators) get
+  /// distinct [ValueKey]s. Using bare content-hash keys violates
+  /// [SliverMultiBoxAdaptorElement]'s child-order invariant when duplicates
+  /// appear, triggering the `indexOf(child) > index` assertion.
+  List<_BlockKey> _computeBlockKeys() {
+    final keys = List<_BlockKey>.filled(widget.blocks.length, _BlockKey.empty,
+        growable: false);
+    final occurrences = <int, int>{};
+    for (var i = 0; i < widget.blocks.length; i++) {
+      final hash = widget.blocks[i].contentHash;
+      final n = (occurrences[hash] ?? 0);
+      occurrences[hash] = n + 1;
+      keys[i] = _BlockKey(hash, n);
+    }
+    return keys;
+  }
+
   Widget _buildSliverList(BuildContext context, MarkdownTheme resolvedTheme) {
+    final blockKeys = _computeBlockKeys();
+    final keyToIndex = <_BlockKey, int>{
+      for (var i = 0; i < blockKeys.length; i++) blockKeys[i]: i,
+    };
     return SliverList(
       delegate: SliverChildBuilderDelegate(
         (context, index) {
           final block = widget.blocks[index];
           return _BlockItemWidget(
-            key: ValueKey(block.contentHash),
+            key: ValueKey(blockKeys[index]),
             block: block,
             builder: _builder,
             resolvedTheme: resolvedTheme,
@@ -159,17 +181,30 @@ class _VirtualMarkdownListState extends State<VirtualMarkdownList> {
         },
         childCount: widget.blocks.length,
         findChildIndexCallback: (key) {
-          if (key is ValueKey<int>) {
-            final hash = key.value;
-            final index =
-                widget.blocks.indexWhere((b) => b.contentHash == hash);
-            return index >= 0 ? index : null;
+          if (key is ValueKey<_BlockKey>) {
+            return keyToIndex[key.value];
           }
           return null;
         },
       ),
     );
   }
+}
+
+@immutable
+class _BlockKey {
+  const _BlockKey(this.hash, this.occurrence);
+  static const _BlockKey empty = _BlockKey(0, 0);
+
+  final int hash;
+  final int occurrence;
+
+  @override
+  bool operator ==(Object other) =>
+      other is _BlockKey && other.hash == hash && other.occurrence == occurrence;
+
+  @override
+  int get hashCode => Object.hash(hash, occurrence);
 }
 
 class _BlockItemWidget extends StatelessWidget {
