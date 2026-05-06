@@ -6,15 +6,17 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:markdown/markdown.dart' as md;
 
-import '../core/parser/content_block.dart';
+import '../core/mermaid/mermaid_cache.dart';
 import '../core/parser/ast_models.dart';
+import '../core/parser/content_block.dart';
 import '../core/parser/custom_syntaxes.dart';
 import '../core/text/utf16_sanitizer.dart';
-import '../style/markdown_theme.dart';
 import '../config/render_options.dart';
-import 'element_builders/formula_builder.dart';
+import '../style/markdown_theme.dart';
 import 'element_builders/code_builder.dart';
+import 'element_builders/formula_builder.dart';
 import 'element_builders/table_builder.dart';
+import '../widgets/components/mermaid_view.dart';
 
 /// Builds widgets from parsed content blocks.
 ///
@@ -25,14 +27,20 @@ class ContentBuilder {
   static final RegExp _blockquotePrefix = RegExp(r'^>\s?');
   static final RegExp _listItemPrefix = RegExp(r'^[\s]*[-*+\d.]+\s+');
   static final RegExp _imageInline = RegExp(r'!\[([^\]]*)\]\(([^)]+)\)');
-  static final RegExp _orderedListPattern =
-      RegExp(r'^\s*\d+\.\s+', multiLine: true);
-  static final RegExp _unorderedListPattern =
-      RegExp(r'^\s*[-*+]\s+', multiLine: true);
-  static final RegExp _orderedTaskPattern =
-      RegExp(r'^\s*\d+\.\s+\[( |x|X)\]\s+');
-  static final RegExp _unorderedTaskPattern =
-      RegExp(r'^\s*[-*+]\s+\[( |x|X)\]\s+');
+  static final RegExp _orderedListPattern = RegExp(
+    r'^\s*\d+\.\s+',
+    multiLine: true,
+  );
+  static final RegExp _unorderedListPattern = RegExp(
+    r'^\s*[-*+]\s+',
+    multiLine: true,
+  );
+  static final RegExp _orderedTaskPattern = RegExp(
+    r'^\s*\d+\.\s+\[( |x|X)\]\s+',
+  );
+  static final RegExp _unorderedTaskPattern = RegExp(
+    r'^\s*[-*+]\s+\[( |x|X)\]\s+',
+  );
 
   /// Creates a content builder.
   ContentBuilder({
@@ -78,6 +86,10 @@ class ContentBuilder {
 
   late final Map<String, ElementBuilder> _builders;
 
+  late final MermaidCache _mermaidCache =
+      renderOptions.mermaidOptions?.cache ??
+      MermaidCache(capacity: renderOptions.mermaidOptions?.cacheCapacity ?? 32);
+
   /// Document for markdown parsing.
   late final md.Document _document;
 
@@ -93,7 +105,8 @@ class ContentBuilder {
   }) {
     // Use the pre-resolved theme if provided; otherwise fall back to resolving
     // it from the inherited provider (backward-compat for external callers).
-    final effectiveTheme = resolvedTheme ??
+    final effectiveTheme =
+        resolvedTheme ??
         (theme != null
             ? MarkdownThemeProvider.of(context).merge(theme!)
             : MarkdownThemeProvider.of(context));
@@ -200,7 +213,9 @@ class ContentBuilder {
     MarkdownTheme? resolvedTheme,
   }) {
     return blocks
-        .map((block) => buildBlock(context, block, resolvedTheme: resolvedTheme))
+        .map(
+          (block) => buildBlock(context, block, resolvedTheme: resolvedTheme),
+        )
         .toList();
   }
 
@@ -232,9 +247,7 @@ class ContentBuilder {
     MarkdownTheme theme,
   ) {
     final level = block.headingLevel ?? 1;
-    final text = block.rawContent
-        .replaceFirst(_headingPrefix, '')
-        .trim();
+    final text = block.rawContent.replaceFirst(_headingPrefix, '').trim();
     final style = theme.headingStyle(level);
     final inlineSpan = _buildInlineSpanFromBlock(
       context,
@@ -260,6 +273,17 @@ class ContentBuilder {
     ContentBlock block,
     MarkdownTheme theme,
   ) {
+    final mermaidOptions = renderOptions.mermaidOptions;
+    if (block.language == 'mermaid' && mermaidOptions != null) {
+      return MermaidView(
+        source: block.rawContent,
+        contentHash: block.contentHash,
+        sourceComplete: true,
+        options: mermaidOptions,
+        cache: _mermaidCache,
+      );
+    }
+
     final builder = _builders['code'] as CodeBlockBuilder;
     return builder.buildWithOptions(
       context,
@@ -568,7 +592,7 @@ class ContentBuilder {
                 value: progress.expectedTotalBytes == null
                     ? null
                     : progress.cumulativeBytesLoaded /
-                        progress.expectedTotalBytes!,
+                          progress.expectedTotalBytes!,
               ),
             ),
           ),
@@ -820,8 +844,7 @@ class ContentBuilder {
     required bool enableTaskLists,
   }) {
     final pattern = ordered ? _orderedListPattern : _unorderedListPattern;
-    final taskPattern =
-        ordered ? _orderedTaskPattern : _unorderedTaskPattern;
+    final taskPattern = ordered ? _orderedTaskPattern : _unorderedTaskPattern;
 
     return content
         .split('\n')
@@ -848,14 +871,16 @@ class ContentBuilder {
 
   Widget _buildTaskCheckbox(bool? isChecked, MarkdownTheme theme) {
     final color = theme.textStyle?.color ?? Colors.grey;
-    final textStyle = theme.textStyle ??
+    final textStyle =
+        theme.textStyle ??
         theme.listBulletStyle ??
         const TextStyle(fontSize: 14, height: 1.2);
     final fontSize = textStyle.fontSize ?? 14;
     final lineHeight = fontSize * (textStyle.height ?? 1.2);
     final iconSize = fontSize + 3;
-    final topPadding =
-        ((lineHeight - iconSize) / 2).clamp(0.0, lineHeight).toDouble();
+    final topPadding = ((lineHeight - iconSize) / 2)
+        .clamp(0.0, lineHeight)
+        .toDouble();
 
     return Padding(
       padding: EdgeInsets.only(top: topPadding),
@@ -956,7 +981,9 @@ class ContentBuilder {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: item.children
-                .map((child) => buildBlock(context, child, resolvedTheme: theme))
+                .map(
+                  (child) => buildBlock(context, child, resolvedTheme: theme),
+                )
                 .toList(),
           ),
         ),
