@@ -5,6 +5,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:markdown/markdown.dart' as md;
 
+import '../core/mermaid/mermaid_options.dart';
 import '../core/parser/markdown_parser.dart';
 
 /// Parser mode for markdown rendering.
@@ -42,6 +43,7 @@ class RenderOptions {
     this.maxImageHeight,
     this.imagePlaceholderHeight = 200.0,
     this.codeBlockMaxHeight,
+    this.mermaidOptions,
     this.virtualScrollThreshold = 20,
   });
 
@@ -114,6 +116,11 @@ class RenderOptions {
   /// Maximum height for code blocks before scrolling.
   final double? codeBlockMaxHeight;
 
+  /// Mermaid rendering configuration.
+  ///
+  /// When null, Mermaid fenced code blocks render as plain code blocks.
+  final MermaidOptions? mermaidOptions;
+
   /// Number of blocks before enabling virtual scrolling.
   final int virtualScrollThreshold;
 
@@ -140,6 +147,7 @@ class RenderOptions {
     double? maxImageHeight,
     double? imagePlaceholderHeight,
     double? codeBlockMaxHeight,
+    MermaidOptions? mermaidOptions,
     int? virtualScrollThreshold,
   }) {
     return RenderOptions(
@@ -166,6 +174,7 @@ class RenderOptions {
       imagePlaceholderHeight:
           imagePlaceholderHeight ?? this.imagePlaceholderHeight,
       codeBlockMaxHeight: codeBlockMaxHeight ?? this.codeBlockMaxHeight,
+      mermaidOptions: mermaidOptions ?? this.mermaidOptions,
       virtualScrollThreshold:
           virtualScrollThreshold ?? this.virtualScrollThreshold,
     );
@@ -197,6 +206,7 @@ class RenderOptions {
           maxImageHeight == other.maxImageHeight &&
           imagePlaceholderHeight == other.imagePlaceholderHeight &&
           codeBlockMaxHeight == other.codeBlockMaxHeight &&
+          mermaidOptions == other.mermaidOptions &&
           virtualScrollThreshold == other.virtualScrollThreshold;
 
   @override
@@ -222,6 +232,7 @@ class RenderOptions {
     maxImageHeight,
     imagePlaceholderHeight,
     codeBlockMaxHeight,
+    mermaidOptions,
     virtualScrollThreshold,
   ]);
 }
