@@ -53,6 +53,17 @@ export 'src/builder/element_builders/table_builder.dart';
 export 'src/config/streaming_options.dart';
 export 'src/config/render_options.dart';
 
+// Mermaid exports
+export 'src/core/mermaid/mermaid_artifact.dart';
+export 'src/core/mermaid/mermaid_cache.dart';
+export 'src/core/mermaid/mermaid_error.dart';
+export 'src/core/mermaid/mermaid_options.dart';
+export 'src/core/mermaid/mermaid_renderer.dart';
+export 'src/core/mermaid/mermaid_theme.dart';
+export 'src/widgets/components/mermaid_artifact_view.dart';
+export 'src/widgets/components/mermaid_fullscreen_viewer.dart';
+export 'src/widgets/components/mermaid_view.dart';
+
 // TOC exports
 export 'src/toc/toc_generator.dart';
 export 'src/toc/toc_view.dart';

@@ -4,8 +4,6 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown_widget/flutter_markdown_widget.dart';
-import 'package:flutter_markdown_widget/src/core/mermaid/mermaid_options.dart';
-import 'package:flutter_markdown_widget/src/core/mermaid/mermaid_theme.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 Future<void> pumpMarkdown(
