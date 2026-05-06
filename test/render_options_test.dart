@@ -254,4 +254,36 @@ void main() {
           reason: 'No underline decoration should be present when enableAutolinks is false');
     });
   });
+
+  group('RenderOptions.mermaidOptions', () {
+    test('default is null (no Mermaid behavior)', () {
+      const opts = RenderOptions();
+      expect(opts.mermaidOptions, isNull);
+    });
+
+    test('copyWith updates mermaidOptions', () {
+      const original = RenderOptions();
+      final updated = original.copyWith(
+        mermaidOptions: const MermaidOptions(theme: MermaidTheme.forest),
+      );
+      expect(updated.mermaidOptions, isNotNull);
+      expect(updated.mermaidOptions!.theme, MermaidTheme.forest);
+    });
+
+    test('equality is sensitive to mermaidOptions', () {
+      const a = RenderOptions(mermaidOptions: MermaidOptions());
+      const b = RenderOptions(
+        mermaidOptions: MermaidOptions(theme: MermaidTheme.dark),
+      );
+      expect(a, isNot(b));
+    });
+
+    test('hashCode incorporates mermaidOptions', () {
+      const a = RenderOptions(mermaidOptions: MermaidOptions());
+      const b = RenderOptions(
+        mermaidOptions: MermaidOptions(theme: MermaidTheme.dark),
+      );
+      expect(a.hashCode, isNot(b.hashCode));
+    });
+  });
 }

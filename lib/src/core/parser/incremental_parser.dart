@@ -325,6 +325,7 @@ class IncrementalMarkdownParser implements MarkdownParser {
   ContentBlock _parseBlock(_RawBlock rawBlock, int index) {
     var type = _detectBlockType(rawBlock);
     final metadata = <String, dynamic>{};
+    var rawContent = rawBlock.content;
 
     if (type == ContentBlockType.paragraph && _customDocument != null) {
       final customInfo = _tryParseCustomBlock(rawBlock);
@@ -343,6 +344,7 @@ class IncrementalMarkdownParser implements MarkdownParser {
     switch (type) {
       case ContentBlockType.codeBlock:
         language = _extractCodeLanguage(rawBlock.content);
+        rawContent = _extractCodeBody(rawBlock.content);
         break;
       case ContentBlockType.heading:
         headingLevel = _extractHeadingLevel(rawBlock.content);
@@ -358,8 +360,13 @@ class IncrementalMarkdownParser implements MarkdownParser {
 
     return ContentBlock(
       type: type,
-      rawContent: rawBlock.content,
-      contentHash: Object.hash(type, rawBlock.content),
+      rawContent: rawContent,
+      contentHash: _contentHashForBlock(
+        type: type,
+        rawContent: rawContent,
+        headingLevel: headingLevel,
+        language: language,
+      ),
       startLine: rawBlock.startLine,
       endLine: rawBlock.endLine,
       language: language,
@@ -486,6 +493,55 @@ class IncrementalMarkdownParser implements MarkdownParser {
   String? _extractCodeLanguage(String content) {
     final match = _codeLanguage.firstMatch(content.trim());
     return match?.group(2);
+  }
+
+  String _extractCodeBody(String content) {
+    final lines = content.split('\n').toList();
+    if (lines.isNotEmpty && lines.last.isEmpty) {
+      lines.removeLast();
+    }
+    if (lines.isEmpty) return '';
+
+    final opening = _codeFenceStart.firstMatch(lines.first);
+    if (opening == null) return content;
+    final marker = opening.group(1)!;
+    lines.removeAt(0);
+
+    var removedClosingFence = false;
+    if (lines.isNotEmpty &&
+        lines.last.trim().startsWith(marker.substring(0, 3))) {
+      lines.removeLast();
+      removedClosingFence = true;
+    }
+
+    final body = lines.join('\n');
+    return removedClosingFence ? '$body\n' : body;
+  }
+
+  int _contentHashForBlock({
+    required ContentBlockType type,
+    required String rawContent,
+    int? headingLevel,
+    String? language,
+  }) {
+    if (type != ContentBlockType.codeBlock) {
+      return Object.hash(type, rawContent);
+    }
+    return _signatureForBlock(
+      type: type,
+      rawContent: rawContent,
+      headingLevel: headingLevel,
+      language: language,
+    ).hashCode;
+  }
+
+  String _signatureForBlock({
+    required ContentBlockType type,
+    required String rawContent,
+    int? headingLevel,
+    String? language,
+  }) {
+    return '${type.name}|${headingLevel ?? ''}|${language ?? ''}|$rawContent';
   }
 
   int _extractHeadingLevel(String content) {
