@@ -30,7 +30,11 @@ migrate_working_dir/
 /build/
 /coverage/
 
-/docs/
+# /docs/ contains a mix of tracked design specs and untracked working notes.
+# Track: docs/superpowers/, docs/ai/ (committed design specs and AI-generated docs)
+# Ignore: docs/plans/ (working drafts, not source-of-truth)
+/docs/plans/
+
 .reference/
 
 .worktrees/
