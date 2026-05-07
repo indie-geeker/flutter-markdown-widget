@@ -2,6 +2,12 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **2026-05-07 revision:** Tasks 0-14 were useful for scaffold, assets, pure
+> utilities, and test structure, but the `flutter_js` runtime path failed Task
+> 15 because Mermaid needs browser DOM APIs. Do not continue old Tasks 15-23.
+> Continue with the WebView-based replan:
+> [`2026-05-07-mermaid-m2-webview-renderer-replan.md`](./2026-05-07-mermaid-m2-webview-renderer-replan.md).
+
 **Goal:** Ship `flutter_markdown_widget_mermaid` — a brand-new sibling pub package providing the default `MermaidRenderer` implementation backed by `flutter_js` + bundled `mermaid.js` — and publish both it and the main package to pub.dev so end users get Mermaid rendering with one `pub add`.
 
 **Architecture:** New independent GitHub repo `flutter-markdown-widget-mermaid`, peer-cloned to the main repo. Inside, a single public class `FlutterJsMermaidRenderer` orchestrates: a private `_JsRuntime` adapter wraps flutter_js, a `MermaidJsLoader` (bundled-from-asset or user-injected), per-render theme directive injection, and SVG background post-processing. Unit tests run in the dart vm with a hand-rolled `FakeJsRuntime`; integration smoke tests exercise the real flutter_js binding on iOS/Android/macOS via GitHub Actions.

@@ -1,10 +1,17 @@
 # Mermaid M2 — Subpackage Default Renderer Design Spec
 
-**Status:** Draft, ready for plan
+**Status:** Superseded for implementation
 **Date:** 2026-05-06
 **Owner:** indiegeeker
 **Supersedes / extends:** [`2026-05-06-mermaid-design.md`](./2026-05-06-mermaid-design.md) §3.5, §7.1 M2, §7.2, §9, §10
 **Sub-project context:** Second milestone in the Mermaid roadmap. M1 (main package infrastructure) shipped on `main` at commit `c6966d1`. M3 (example + docs) is a separate cycle.
+
+> **2026-05-07 revision:** This design's `flutter_js` runtime assumption was
+> invalidated during Task 15 real-platform smoke. `mermaid.min.js@10.9.5`
+> evaluates DOM APIs such as `document`, `window`, `createElement`, and
+> `getBBox`; a pure `flutter_js` runtime has no browser DOM. Implementation is
+> superseded by
+> [`2026-05-07-mermaid-m2-webview-renderer-redesign.md`](./2026-05-07-mermaid-m2-webview-renderer-redesign.md).
 
 ---
 
