@@ -14,8 +14,17 @@ High-performance Markdown rendering for Flutter, designed for both static conten
 
 ## Mermaid diagrams
 
-Mermaid rendering is provided by the companion package in the side-by-side
-local workspace:
+Mermaid rendering is provided by the companion package
+`flutter_markdown_widget_mermaid`.
+
+For published packages:
+
+```bash
+flutter pub add flutter_markdown_widget flutter_markdown_widget_mermaid
+```
+
+For local development, clone the two repositories side-by-side and use path
+dependencies:
 
 ```yaml
 dependencies:
@@ -24,6 +33,9 @@ dependencies:
   flutter_markdown_widget_mermaid:
     path: ../flutter-markdown-widget-mermaid
 ```
+
+Create one renderer, keep `MermaidWebViewHost` above the markdown subtree, and
+pass the same renderer through `RenderOptions`:
 
 ```dart
 import 'package:flutter_markdown_widget/flutter_markdown_widget.dart';
@@ -44,8 +56,10 @@ MermaidWebViewHost(
 );
 ```
 
-The current local renderer uses `webview_flutter` and is verified on iOS,
-Android, and macOS.
+The WebView renderer uses `webview_flutter`. Keep the host alive at app or page
+scope so diagrams can share the same WebView-backed renderer instance. The
+example app includes static, streaming, themed, and error-state Mermaid demos
+and is verified on iOS, Android, and macOS.
 
 ## Installation
 
@@ -115,6 +129,7 @@ See `/example` for end-to-end demos:
 - Streaming Lab
 - TOC Navigator
 - Editor Preview
+- Mermaid Showcase
 - Performance
 
 ## Contributing

@@ -14,8 +14,16 @@ jobs:
     timeout-minutes: 30
 
     steps:
-      - name: Checkout
+      - name: Checkout package
         uses: actions/checkout@v4
+        with:
+          path: flutter-markdown-widget
+
+      - name: Checkout Mermaid companion package
+        uses: actions/checkout@v4
+        with:
+          repository: indie-geeker/flutter-markdown-widget-mermaid
+          path: flutter-markdown-widget-mermaid
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -24,25 +32,29 @@ jobs:
           cache: true
 
       - name: Install package dependencies
+        working-directory: flutter-markdown-widget
         run: flutter pub get
 
       - name: Analyze package
+        working-directory: flutter-markdown-widget
         run: flutter analyze
 
       - name: Test package
+        working-directory: flutter-markdown-widget
         run: flutter test
 
       - name: Run strict performance benchmarks
+        working-directory: flutter-markdown-widget
         run: flutter test test/benchmark_test.dart --dart-define=BENCHMARK_PROFILE=ci
 
       - name: Install example dependencies
-        working-directory: example
+        working-directory: flutter-markdown-widget/example
         run: flutter pub get
 
       - name: Analyze example
-        working-directory: example
+        working-directory: flutter-markdown-widget/example
         run: flutter analyze
 
       - name: Test example
-        working-directory: example
+        working-directory: flutter-markdown-widget/example
         run: flutter test

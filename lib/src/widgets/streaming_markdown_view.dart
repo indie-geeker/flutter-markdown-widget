@@ -397,7 +397,8 @@ class _StreamingMarkdownViewState extends State<StreamingMarkdownView> {
         // cache is intentionally bypassed in the render path.
         final built = _builder.buildBlock(context, block, resolvedTheme: theme);
 
-        if (incompleteIndex != null && index == incompleteIndex &&
+        if (incompleteIndex != null &&
+            index == incompleteIndex &&
             widget.streamingOptions.incompleteBlockOpacity < 1.0) {
           return Opacity(
             opacity: widget.streamingOptions.incompleteBlockOpacity,
@@ -443,6 +444,7 @@ class _StreamingMarkdownViewState extends State<StreamingMarkdownView> {
       ),
       startLine: startLine,
       endLine: endLine,
+      metadata: const {'sourceComplete': false},
     );
   }
 

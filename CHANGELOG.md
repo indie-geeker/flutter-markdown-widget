@@ -4,12 +4,21 @@
 
 - `RenderOptions.imagePlaceholderHeight` (default `200.0`) — reserves vertical
   space for network images while they load so scroll position stays stable.
+- Mermaid example app integration with the companion
+  `flutter_markdown_widget_mermaid` package, including static diagrams,
+  streaming replay, theme selection, inline diagnostics, and retry UI.
+- README and example documentation for published Mermaid dependencies and
+  side-by-side local development.
 
 ### Changed
 
 - Network image `errorBuilder` now renders inside a `SizedBox` of
   `imagePlaceholderHeight` with centered text (previously rendered at the
   text's intrinsic height). Error states no longer alter scroll geometry.
+- Streaming Mermaid fences remain in fallback markdown form until the closing
+  fence arrives, avoiding premature renderer calls for incomplete source.
+- Virtual scrolling records rendered Mermaid heights through
+  `BlockDimensionEstimator` so diagram layout can improve after first render.
 
 ### Performance
 

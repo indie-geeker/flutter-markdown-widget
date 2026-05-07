@@ -4,6 +4,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown_widget/flutter_markdown_widget.dart';
+import 'package:flutter_markdown_widget/testing.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -28,9 +29,7 @@ void main() {
           home: Scaffold(
             body: SizedBox(
               height: 400,
-              child: VirtualMarkdownList(
-                blocks: blocks,
-              ),
+              child: VirtualMarkdownList(blocks: blocks),
             ),
           ),
         ),
@@ -41,8 +40,9 @@ void main() {
       expect(find.byType(RepaintBoundary), findsWidgets);
     });
 
-    testWidgets('lets children take their natural height (no forced extent)',
-        (tester) async {
+    testWidgets('lets children take their natural height (no forced extent)', (
+      tester,
+    ) async {
       // Regression test for RenderFlex overflow caused by forcing children to
       // an estimated height via SliverVariedExtentList. Blocks with the same
       // type but very different content lengths must each lay out at their
@@ -81,60 +81,64 @@ void main() {
     });
 
     testWidgets(
-        'does not reuse widget instances across blocks with duplicate contentHash',
-        (tester) async {
-      // Regression test for a latent GlobalKey-duplication bug.
-      //
-      // When the same content appears at multiple positions, the blocks
-      // share a contentHash. If VirtualMarkdownList serves cached widget
-      // instances from WidgetRenderCache by contentHash, the same instance
-      // is mounted at two tree positions at once. Any GlobalKey inside that
-      // widget (e.g. flutter_math_fork's Math.tex internal keys) then
-      // triggers "Duplicate GlobalKeys detected in widget tree".
-      //
-      // We verify the fix structurally: when an external cache is passed,
-      // the build path must not populate it. A zero miss count after render
-      // proves cache.getOrBuild was never called during block builds.
-      const sharedHash = 777;
-      final blocks = [
-        ContentBlock(
-          type: ContentBlockType.paragraph,
-          rawContent: 'Repeated content',
-          contentHash: sharedHash,
-          startLine: 0,
-          endLine: 0,
-        ),
-        ContentBlock(
-          type: ContentBlockType.paragraph,
-          rawContent: 'Repeated content',
-          contentHash: sharedHash,
-          startLine: 1,
-          endLine: 1,
-        ),
-      ];
-      final cache = WidgetRenderCache();
+      'does not reuse widget instances across blocks with duplicate contentHash',
+      (tester) async {
+        // Regression test for a latent GlobalKey-duplication bug.
+        //
+        // When the same content appears at multiple positions, the blocks
+        // share a contentHash. If VirtualMarkdownList serves cached widget
+        // instances from WidgetRenderCache by contentHash, the same instance
+        // is mounted at two tree positions at once. Any GlobalKey inside that
+        // widget (e.g. flutter_math_fork's Math.tex internal keys) then
+        // triggers "Duplicate GlobalKeys detected in widget tree".
+        //
+        // We verify the fix structurally: when an external cache is passed,
+        // the build path must not populate it. A zero miss count after render
+        // proves cache.getOrBuild was never called during block builds.
+        const sharedHash = 777;
+        final blocks = [
+          ContentBlock(
+            type: ContentBlockType.paragraph,
+            rawContent: 'Repeated content',
+            contentHash: sharedHash,
+            startLine: 0,
+            endLine: 0,
+          ),
+          ContentBlock(
+            type: ContentBlockType.paragraph,
+            rawContent: 'Repeated content',
+            contentHash: sharedHash,
+            startLine: 1,
+            endLine: 1,
+          ),
+        ];
+        final cache = WidgetRenderCache();
 
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: SizedBox(
-              height: 600,
-              child: VirtualMarkdownList(
-                blocks: blocks,
-                widgetCache: cache,
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: SizedBox(
+                height: 600,
+                child: VirtualMarkdownList(blocks: blocks, widgetCache: cache),
               ),
             ),
           ),
-        ),
-      );
-      await tester.pumpAndSettle();
+        );
+        await tester.pumpAndSettle();
 
-      expect(tester.takeException(), isNull);
-      expect(cache.size, 0,
-          reason: 'Cache must not be populated from the render path.');
-      expect(cache.misses, 0,
-          reason: 'cache.getOrBuild must not be called during block builds.');
-    });
+        expect(tester.takeException(), isNull);
+        expect(
+          cache.size,
+          0,
+          reason: 'Cache must not be populated from the render path.',
+        );
+        expect(
+          cache.misses,
+          0,
+          reason: 'cache.getOrBuild must not be called during block builds.',
+        );
+      },
+    );
 
     testWidgets('handles empty blocks', (tester) async {
       await tester.pumpWidget(
@@ -142,9 +146,7 @@ void main() {
           home: Scaffold(
             body: SizedBox(
               height: 400,
-              child: VirtualMarkdownList(
-                blocks: const [],
-              ),
+              child: VirtualMarkdownList(blocks: const []),
             ),
           ),
         ),
@@ -152,6 +154,43 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(SizedBox), findsWidgets);
+    });
+
+    testWidgets('records Mermaid rendered height in dimension estimator', (
+      tester,
+    ) async {
+      const block = ContentBlock(
+        type: ContentBlockType.codeBlock,
+        rawContent: 'flowchart TD\nA-->B',
+        contentHash: 900,
+        startLine: 0,
+        endLine: 2,
+        language: 'mermaid',
+      );
+      final renderer = FakeMermaidRenderer();
+      final estimator = BlockDimensionEstimator();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 400,
+              height: 600,
+              child: VirtualMarkdownList(
+                blocks: const [block],
+                renderOptions: RenderOptions(
+                  mermaidOptions: MermaidOptions(renderer: renderer),
+                ),
+                dimensionEstimator: estimator,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      expect(estimator.getActualHeight(block.contentHash), closeTo(200, 0.1));
     });
   });
 }

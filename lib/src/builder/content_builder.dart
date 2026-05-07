@@ -46,6 +46,7 @@ class ContentBuilder {
   ContentBuilder({
     this.theme,
     this.renderOptions = const RenderOptions(),
+    this.onBlockRenderedSize,
     Map<String, ElementBuilder>? customBuilders,
   }) {
     _builders = {
@@ -83,6 +84,9 @@ class ContentBuilder {
 
   /// Render options.
   final RenderOptions renderOptions;
+
+  /// Callback for blocks that can report their laid-out size.
+  final void Function(ContentBlock block, Size size)? onBlockRenderedSize;
 
   late final Map<String, ElementBuilder> _builders;
 
@@ -275,12 +279,18 @@ class ContentBuilder {
   ) {
     final mermaidOptions = renderOptions.mermaidOptions;
     if (block.language == 'mermaid' && mermaidOptions != null) {
+      final sourceComplete = block.metadata['sourceComplete'] is bool
+          ? block.metadata['sourceComplete'] as bool
+          : true;
       return MermaidView(
         source: block.rawContent,
         contentHash: block.contentHash,
-        sourceComplete: true,
+        sourceComplete: sourceComplete,
         options: mermaidOptions,
         cache: _mermaidCache,
+        onRenderedSize: onBlockRenderedSize == null
+            ? null
+            : (size) => onBlockRenderedSize!(block, size),
       );
     }
 

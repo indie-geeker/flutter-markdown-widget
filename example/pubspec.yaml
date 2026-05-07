@@ -14,6 +14,8 @@ dependencies:
     sdk: flutter
   flutter_markdown_widget:
     path: ../
+  flutter_markdown_widget_mermaid:
+    path: ../../flutter-markdown-widget-mermaid
 
 dev_dependencies:
   flutter_test:

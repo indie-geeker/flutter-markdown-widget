@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import '../app/app_theme.dart';
 import '../pages/editor_preview_page.dart';
 import '../pages/feature_showcase_page.dart';
+import '../pages/mermaid_showcase_page.dart';
 import '../pages/performance_page.dart';
 import '../pages/streaming_lab_page.dart';
 import '../pages/toc_demo_page.dart';
@@ -37,6 +38,15 @@ final List<DemoEntry> demoEntries = [
     gradient: AppGradients.amber,
     badges: ['Live Editing', 'Side by Side'],
     builder: (_) => const EditorPreviewPage(),
+  ),
+  DemoEntry(
+    title: 'Mermaid Showcase',
+    description:
+        'Render diagrams in static markdown, streaming output, and error states.',
+    icon: Icons.account_tree_rounded,
+    gradient: AppGradients.emerald,
+    badges: ['Mermaid', 'WebView'],
+    builder: (_) => const MermaidShowcasePage(),
   ),
   DemoEntry(
     title: 'Feature Showcase',
