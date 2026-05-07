@@ -87,4 +87,29 @@ void main() {
     await tester.tap(find.byKey(const Key('mermaid-artifact-sized-box')));
     expect(taps, 1);
   });
+
+  testWidgets('reports the laid out artifact size', (tester) async {
+    Size? laidOutSize;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Center(
+          child: SizedBox(
+            width: 400,
+            child: MermaidArtifactView(
+              artifact: const MermaidArtifact(
+                svg: _validSvg,
+                intrinsicSize: Size(800, 400),
+              ),
+              onLaidOutSize: (size) => laidOutSize = size,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(laidOutSize, isNotNull);
+    expect(laidOutSize!.width, closeTo(400, 0.1));
+    expect(laidOutSize!.height, closeTo(200, 0.1));
+  });
 }

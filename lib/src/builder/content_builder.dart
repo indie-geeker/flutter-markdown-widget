@@ -46,6 +46,7 @@ class ContentBuilder {
   ContentBuilder({
     this.theme,
     this.renderOptions = const RenderOptions(),
+    this.onBlockRenderedSize,
     Map<String, ElementBuilder>? customBuilders,
   }) {
     _builders = {
@@ -83,6 +84,9 @@ class ContentBuilder {
 
   /// Render options.
   final RenderOptions renderOptions;
+
+  /// Callback for blocks that can report their laid-out size.
+  final void Function(ContentBlock block, Size size)? onBlockRenderedSize;
 
   late final Map<String, ElementBuilder> _builders;
 
@@ -284,6 +288,9 @@ class ContentBuilder {
         sourceComplete: sourceComplete,
         options: mermaidOptions,
         cache: _mermaidCache,
+        onRenderedSize: onBlockRenderedSize == null
+            ? null
+            : (size) => onBlockRenderedSize!(block, size),
       );
     }
 

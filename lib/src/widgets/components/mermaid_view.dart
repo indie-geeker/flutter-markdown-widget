@@ -25,6 +25,7 @@ class MermaidView extends StatefulWidget {
     required this.options,
     required this.cache,
     this.onIntrinsicSize,
+    this.onRenderedSize,
   });
 
   /// Mermaid source code with the fence stripped.
@@ -44,6 +45,9 @@ class MermaidView extends StatefulWidget {
 
   /// Invoked when the artifact intrinsic size becomes known.
   final void Function(Size size)? onIntrinsicSize;
+
+  /// Invoked when the resolved artifact has been laid out in the widget tree.
+  final void Function(Size size)? onRenderedSize;
 
   @override
   State<MermaidView> createState() => _MermaidViewState();
@@ -239,6 +243,7 @@ class _MermaidViewState extends State<MermaidView> {
     if (_artifact != null) {
       return MermaidArtifactView(
         artifact: _artifact!,
+        onLaidOutSize: widget.onRenderedSize,
         onTap: widget.options.enableTapToFullscreen
             ? () => _openFullscreen(_artifact!)
             : null,

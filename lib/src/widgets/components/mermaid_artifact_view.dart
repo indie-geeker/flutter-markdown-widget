@@ -9,13 +9,21 @@ import '../../core/mermaid/mermaid_artifact.dart';
 
 /// Pure-display widget for a resolved [MermaidArtifact].
 class MermaidArtifactView extends StatelessWidget {
-  const MermaidArtifactView({super.key, required this.artifact, this.onTap});
+  const MermaidArtifactView({
+    super.key,
+    required this.artifact,
+    this.onTap,
+    this.onLaidOutSize,
+  });
 
   /// Resolved Mermaid SVG artifact.
   final MermaidArtifact artifact;
 
   /// Optional tap callback, commonly used to open fullscreen.
   final VoidCallback? onTap;
+
+  /// Invoked after layout with the size used to display the artifact.
+  final ValueChanged<Size>? onLaidOutSize;
 
   static const double _fallbackAspectRatio = 16 / 9;
 
@@ -33,6 +41,13 @@ class MermaidArtifactView extends StatelessWidget {
             ? constraints.maxWidth
             : (artifact.intrinsicSize?.width ?? 600.0);
         final height = width / aspect;
+        final laidOutSize = Size(width, height);
+
+        if (onLaidOutSize != null) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            onLaidOutSize?.call(laidOutSize);
+          });
+        }
 
         Widget content = SizedBox(
           key: const Key('mermaid-artifact-sized-box'),

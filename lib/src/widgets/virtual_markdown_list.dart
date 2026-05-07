@@ -4,6 +4,7 @@
 
 import 'package:flutter/material.dart';
 
+import '../core/cache/dimension_estimator.dart';
 import '../core/parser/content_block.dart';
 import '../core/cache/widget_cache.dart';
 import '../builder/content_builder.dart';
@@ -28,6 +29,7 @@ class VirtualMarkdownList extends StatefulWidget {
     this.padding,
     this.cacheExtent,
     this.widgetCache,
+    this.dimensionEstimator,
     this.fadedIndex,
     this.fadedOpacity,
   });
@@ -57,6 +59,9 @@ class VirtualMarkdownList extends StatefulWidget {
   /// Optional external widget cache. If provided, the caller owns its lifecycle.
   final WidgetRenderCache? widgetCache;
 
+  /// Optional estimator that records rendered heights for future estimates.
+  final BlockDimensionEstimator? dimensionEstimator;
+
   /// Optional index to render with reduced opacity (e.g., incomplete block).
   final int? fadedIndex;
 
@@ -80,10 +85,7 @@ class _VirtualMarkdownListState extends State<VirtualMarkdownList> {
   @override
   void initState() {
     super.initState();
-    _builder = ContentBuilder(
-      theme: widget.theme,
-      renderOptions: widget.renderOptions,
-    );
+    _builder = _createBuilder();
     _cache = widget.widgetCache ?? WidgetRenderCache();
     _ownsCache = widget.widgetCache == null;
   }
@@ -91,16 +93,29 @@ class _VirtualMarkdownListState extends State<VirtualMarkdownList> {
   @override
   void didUpdateWidget(VirtualMarkdownList oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.renderOptions != oldWidget.renderOptions) {
-      _builder = ContentBuilder(
-        theme: widget.theme,
-        renderOptions: widget.renderOptions,
-      );
+    if (widget.renderOptions != oldWidget.renderOptions ||
+        widget.theme != oldWidget.theme ||
+        widget.dimensionEstimator != oldWidget.dimensionEstimator) {
+      _builder = _createBuilder();
     }
     if (widget.theme != oldWidget.theme) {
-      _builder = ContentBuilder(theme: widget.theme, renderOptions: widget.renderOptions);
       if (_ownsCache) _cache.clear();
     }
+  }
+
+  ContentBuilder _createBuilder() {
+    return ContentBuilder(
+      theme: widget.theme,
+      renderOptions: widget.renderOptions,
+      onBlockRenderedSize: widget.dimensionEstimator == null
+          ? null
+          : (block, size) {
+              widget.dimensionEstimator!.recordActualHeight(
+                block.contentHash,
+                size.height,
+              );
+            },
+    );
   }
 
   @override
@@ -147,8 +162,11 @@ class _VirtualMarkdownListState extends State<VirtualMarkdownList> {
   /// [SliverMultiBoxAdaptorElement]'s child-order invariant when duplicates
   /// appear, triggering the `indexOf(child) > index` assertion.
   List<_BlockKey> _computeBlockKeys() {
-    final keys = List<_BlockKey>.filled(widget.blocks.length, _BlockKey.empty,
-        growable: false);
+    final keys = List<_BlockKey>.filled(
+      widget.blocks.length,
+      _BlockKey.empty,
+      growable: false,
+    );
     final occurrences = <int, int>{};
     for (var i = 0; i < widget.blocks.length; i++) {
       final hash = widget.blocks[i].contentHash;
@@ -173,7 +191,8 @@ class _VirtualMarkdownListState extends State<VirtualMarkdownList> {
             block: block,
             builder: _builder,
             resolvedTheme: resolvedTheme,
-            isFaded: widget.fadedIndex != null &&
+            isFaded:
+                widget.fadedIndex != null &&
                 widget.fadedIndex == index &&
                 widget.fadedOpacity != null,
             fadedOpacity: widget.fadedOpacity ?? 1.0,
@@ -201,7 +220,9 @@ class _BlockKey {
 
   @override
   bool operator ==(Object other) =>
-      other is _BlockKey && other.hash == hash && other.occurrence == occurrence;
+      other is _BlockKey &&
+      other.hash == hash &&
+      other.occurrence == occurrence;
 
   @override
   int get hashCode => Object.hash(hash, occurrence);
@@ -239,10 +260,7 @@ class _BlockItemWidget extends StatelessWidget {
     );
 
     if (isFaded && fadedOpacity < 1.0) {
-      child = Opacity(
-        opacity: fadedOpacity.clamp(0.0, 1.0),
-        child: child,
-      );
+      child = Opacity(opacity: fadedOpacity.clamp(0.0, 1.0), child: child);
     }
 
     return RepaintBoundary(child: child);

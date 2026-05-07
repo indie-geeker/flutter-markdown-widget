@@ -119,6 +119,32 @@ void main() {
     },
   );
 
+  testWidgets('reports rendered Mermaid size after artifact layout', (
+    tester,
+  ) async {
+    final fake = FakeMermaidRenderer();
+    Size? renderedSize;
+
+    await tester.pumpWidget(
+      _wrap(
+        MermaidView(
+          source: 'graph LR\nA-->B',
+          contentHash: 10,
+          sourceComplete: true,
+          options: MermaidOptions(renderer: fake, theme: MermaidTheme.light),
+          cache: MermaidCache(capacity: 4),
+          onRenderedSize: (size) => renderedSize = size,
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(renderedSize, isNotNull);
+    expect(renderedSize!.width, closeTo(400, 0.1));
+    expect(renderedSize!.height, closeTo(200, 0.1));
+  });
+
   testWidgets(
     'A6: syntax error degrades to fallback + red banner; not cached',
     (tester) async {
