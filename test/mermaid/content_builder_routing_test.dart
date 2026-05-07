@@ -39,6 +39,34 @@ void main() {
     },
   );
 
+  testWidgets('sourceComplete metadata is forwarded to MermaidView', (
+    tester,
+  ) async {
+    final fake = FakeMermaidRenderer();
+    final builder = ContentBuilder(
+      renderOptions: RenderOptions(
+        mermaidOptions: MermaidOptions(renderer: fake),
+      ),
+    );
+    const block = ContentBlock(
+      type: ContentBlockType.codeBlock,
+      rawContent: 'graph LR\nA-->B',
+      contentHash: 5,
+      language: 'mermaid',
+      metadata: {'sourceComplete': false},
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Builder(builder: (ctx) => builder.buildBlock(ctx, block)),
+        ),
+      ),
+    );
+
+    final view = tester.widget<MermaidView>(find.byType(MermaidView));
+    expect(view.sourceComplete, isFalse);
+  });
+
   testWidgets(
     'language == "mermaid" with renderer null routes to MermaidView',
     (tester) async {

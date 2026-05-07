@@ -6,6 +6,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown_widget/flutter_markdown_widget.dart';
+import 'package:flutter_markdown_widget/testing.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -24,6 +25,7 @@ void main() {
     Future<void> pumpStreaming(
       WidgetTester tester, {
       StreamingOptions streamingOptions = const StreamingOptions(),
+      RenderOptions renderOptions = const RenderOptions(),
     }) async {
       await tester.pumpWidget(
         MaterialApp(
@@ -31,6 +33,7 @@ void main() {
             body: StreamingMarkdownView.fromStream(
               stream: controller!.stream,
               streamingOptions: streamingOptions,
+              renderOptions: renderOptions,
             ),
           ),
         ),
@@ -48,10 +51,12 @@ void main() {
       expect(find.text('Hello', findRichText: true), findsOneWidget);
     });
 
-    testWidgets('rapid single-char chunks produce correct final content',
-        (tester) async {
+    testWidgets('rapid single-char chunks produce correct final content', (
+      tester,
+    ) async {
       await pumpStreaming(tester);
-      final content = 'a' * 100; // 100 'a' characters — well above the 100-chunk threshold
+      final content =
+          'a' * 100; // 100 'a' characters — well above the 100-chunk threshold
       for (final char in content.runes) {
         controller!.add(String.fromCharCode(char));
         await tester.pump(const Duration(milliseconds: 5));
@@ -61,8 +66,9 @@ void main() {
       expect(find.text(content, findRichText: true), findsOneWidget);
     });
 
-    testWidgets('stream error sets widget to non-receiving state',
-        (tester) async {
+    testWidgets('stream error sets widget to non-receiving state', (
+      tester,
+    ) async {
       await pumpStreaming(tester);
       controller!.add('# Partial content');
       await tester.pump();
@@ -81,8 +87,9 @@ void main() {
       expect(find.textContaining('Partial content'), findsWidgets);
     });
 
-    testWidgets('widget disposal during active stream produces no errors',
-        (tester) async {
+    testWidgets('widget disposal during active stream produces no errors', (
+      tester,
+    ) async {
       await pumpStreaming(tester);
       controller!.add('# Heading');
       await tester.pump();
@@ -96,8 +103,9 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('replacing stream widget shows new stream content',
-        (tester) async {
+    testWidgets('replacing stream widget shows new stream content', (
+      tester,
+    ) async {
       await pumpStreaming(tester);
       controller!.add('First stream');
       await tester.pump();
@@ -107,9 +115,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
-            body: StreamingMarkdownView.fromStream(
-              stream: controller2.stream,
-            ),
+            body: StreamingMarkdownView.fromStream(stream: controller2.stream),
           ),
         ),
       );
@@ -121,12 +127,12 @@ void main() {
       expect(find.textContaining('First stream'), findsNothing);
     });
 
-    testWidgets('byLine mode does not render until newline received',
-        (tester) async {
+    testWidgets('byLine mode does not render until newline received', (
+      tester,
+    ) async {
       await pumpStreaming(
         tester,
-        streamingOptions:
-            const StreamingOptions(bufferMode: BufferMode.byLine),
+        streamingOptions: const StreamingOptions(bufferMode: BufferMode.byLine),
       );
       // Send content without newline — should not render complete paragraph yet
       controller!.add('Hello');
@@ -137,6 +143,35 @@ void main() {
       await controller!.close();
       await tester.pumpAndSettle();
       expect(find.text('Hello world', findRichText: true), findsOneWidget);
+    });
+
+    testWidgets('incomplete Mermaid fence does not render until closed', (
+      tester,
+    ) async {
+      final fake = FakeMermaidRenderer();
+      await pumpStreaming(
+        tester,
+        streamingOptions: const StreamingOptions(
+          bufferMode: BufferMode.byCharacter,
+          renderIncompleteBlocks: true,
+        ),
+        renderOptions: RenderOptions(
+          mermaidOptions: MermaidOptions(renderer: fake),
+        ),
+      );
+
+      controller!.add('```mermaid\nflowchart TD\nA-->B');
+      await tester.pump();
+
+      expect(find.textContaining('flowchart TD'), findsWidgets);
+      expect(fake.calls, isEmpty);
+
+      controller!.add('\n```');
+      await controller!.close();
+      await tester.pumpAndSettle();
+
+      expect(fake.calls, hasLength(1));
+      expect(fake.calls.single.source, contains('flowchart TD'));
     });
   });
 }

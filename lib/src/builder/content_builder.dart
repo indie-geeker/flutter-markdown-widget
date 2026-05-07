@@ -275,10 +275,13 @@ class ContentBuilder {
   ) {
     final mermaidOptions = renderOptions.mermaidOptions;
     if (block.language == 'mermaid' && mermaidOptions != null) {
+      final sourceComplete = block.metadata['sourceComplete'] is bool
+          ? block.metadata['sourceComplete'] as bool
+          : true;
       return MermaidView(
         source: block.rawContent,
         contentHash: block.contentHash,
-        sourceComplete: true,
+        sourceComplete: sourceComplete,
         options: mermaidOptions,
         cache: _mermaidCache,
       );
