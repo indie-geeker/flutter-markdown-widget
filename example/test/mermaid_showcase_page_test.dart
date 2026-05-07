@@ -76,4 +76,40 @@ void main() {
       anyElement(contains('flowchart')),
     );
   });
+
+  testWidgets('error mode surfaces diagnostics and retry action', (
+    tester,
+  ) async {
+    final renderer = FakeMermaidRenderer();
+
+    await tester.pumpWidget(
+      MermaidDemoScope(
+        renderer: renderer,
+        child: const MaterialApp(home: MermaidShowcasePage()),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    renderer.errorToThrow = MermaidSyntaxError(
+      source: 'bad',
+      message: 'parse failed',
+      stackTrace: StackTrace.current,
+    );
+
+    await tester.tap(find.text('Errors'));
+    await tester.pump();
+    await tester.pump();
+
+    expect(
+      find.byKey(const Key('mermaid-showcase-diagnostics')),
+      findsOneWidget,
+    );
+    expect(find.text('Errors: 1'), findsOneWidget);
+    expect(find.textContaining('MermaidSyntaxError'), findsWidgets);
+    expect(
+      find.byKey(const Key('mermaid-showcase-error-retry')),
+      findsOneWidget,
+    );
+  });
 }

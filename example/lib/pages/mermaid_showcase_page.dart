@@ -34,6 +34,12 @@ class _MermaidShowcasePageState extends State<MermaidShowcasePage> {
   MermaidTheme _mermaidTheme = MermaidTheme.auto;
   StreamController<String>? _streamController;
   bool _isStreaming = false;
+  int _errorCount = 0;
+  String? _lastErrorType;
+  late final void Function(MermaidError error) _onMermaidError =
+      _handleMermaidError;
+  late final Widget Function(BuildContext, MermaidErrorContext)
+      _inlineErrorBuilder = _buildInlineError;
 
   String get _content {
     return switch (_mode) {
@@ -50,6 +56,8 @@ class _MermaidShowcasePageState extends State<MermaidShowcasePage> {
       mermaidOptions: MermaidOptions(
         renderer: renderer,
         theme: _mermaidTheme,
+        onError: _onMermaidError,
+        errorBuilder: _inlineErrorBuilder,
       ),
     );
   }
@@ -65,7 +73,19 @@ class _MermaidShowcasePageState extends State<MermaidShowcasePage> {
   void _setMode(MermaidShowcaseMode mode) {
     if (_mode == mode) return;
     _closeStream();
-    setState(() => _mode = mode);
+    setState(() {
+      _mode = mode;
+      _errorCount = 0;
+      _lastErrorType = null;
+    });
+  }
+
+  void _handleMermaidError(MermaidError error) {
+    if (!mounted) return;
+    setState(() {
+      _errorCount++;
+      _lastErrorType = error.runtimeType.toString();
+    });
   }
 
   void _startStreaming() {
@@ -178,6 +198,13 @@ class _MermaidShowcasePageState extends State<MermaidShowcasePage> {
                       ),
                     ),
                   ],
+                  if (_mode == MermaidShowcaseMode.errors) ...[
+                    const SizedBox(height: 16),
+                    _DiagnosticsPanel(
+                      errorCount: _errorCount,
+                      lastErrorType: _lastErrorType,
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -209,6 +236,83 @@ class _MermaidShowcasePageState extends State<MermaidShowcasePage> {
       content: _content,
       theme: markdownTheme,
       renderOptions: _renderOptions(renderer),
+    );
+  }
+
+  Widget _buildInlineError(
+    BuildContext context,
+    MermaidErrorContext context_,
+  ) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      key: const Key('mermaid-showcase-inline-error'),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: colorScheme.errorContainer,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              context_.error.runtimeType.toString(),
+              style: TextStyle(
+                color: colorScheme.onErrorContainer,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          TextButton(
+            key: const Key('mermaid-showcase-error-retry'),
+            onPressed: context_.retry,
+            child: const Text('Retry'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DiagnosticsPanel extends StatelessWidget {
+  const _DiagnosticsPanel({
+    required this.errorCount,
+    required this.lastErrorType,
+  });
+
+  final int errorCount;
+  final String? lastErrorType;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: const Key('mermaid-showcase-diagnostics'),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.errorContainer.withValues(
+              alpha: 0.42,
+            ),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.bug_report_rounded,
+            color: Theme.of(context).colorScheme.error,
+          ),
+          const SizedBox(width: 10),
+          Text(
+            'Errors: $errorCount',
+            style: const TextStyle(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              lastErrorType ?? 'No error',
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
