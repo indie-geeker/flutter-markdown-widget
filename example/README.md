@@ -10,10 +10,20 @@ flutter pub get
 flutter run
 ```
 
+The Mermaid demo depends on the companion package in a side-by-side checkout:
+
+```text
+parent/
+  flutter-markdown-widget/
+  flutter-markdown-widget-mermaid/
+```
+
 ## Demo Pages
 
 - `Editor Preview`: split editor + live markdown preview
 - `Feature Showcase`: toggle render options (LaTeX, tables, images, parser mode)
+- `Mermaid Showcase`: static diagrams, streaming fences, theme selection, and
+  error handling
 - `Streaming Lab`: simulate token streaming and buffer strategies
 - `TOC Navigator`: heading sync and jump navigation with `TocController`
 - `Performance`: virtual scrolling and long-document rendering
