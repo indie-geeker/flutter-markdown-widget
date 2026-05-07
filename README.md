@@ -12,6 +12,41 @@ High-performance Markdown rendering for Flutter, designed for both static conten
 - Virtual scrolling for large documents
 - Configurable render pipeline (`RenderOptions`, custom parser/custom syntax)
 
+## Mermaid diagrams
+
+Mermaid rendering is provided by the companion package in the side-by-side
+local workspace:
+
+```yaml
+dependencies:
+  flutter_markdown_widget:
+    path: ../flutter-markdown-widget
+  flutter_markdown_widget_mermaid:
+    path: ../flutter-markdown-widget-mermaid
+```
+
+```dart
+import 'package:flutter_markdown_widget/flutter_markdown_widget.dart';
+import 'package:flutter_markdown_widget_mermaid/flutter_markdown_widget_mermaid.dart';
+
+final mermaidRenderer = MermaidWebViewRenderer.shared();
+
+MermaidWebViewHost(
+  renderer: mermaidRenderer,
+  child: MarkdownWidget(
+    data: markdownSource,
+    renderOptions: RenderOptions(
+      mermaidOptions: MermaidOptions(
+        renderer: mermaidRenderer,
+      ),
+    ),
+  ),
+);
+```
+
+The current local renderer uses `webview_flutter` and is verified on iOS,
+Android, and macOS.
+
 ## Installation
 
 ```bash
