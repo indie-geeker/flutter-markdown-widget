@@ -3,6 +3,8 @@
 // found in the LICENSE file.
 // ignore_for_file: experimental_member_use
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown_widget/flutter_markdown_widget.dart';
 
@@ -30,6 +32,8 @@ class MermaidShowcasePage extends StatefulWidget {
 class _MermaidShowcasePageState extends State<MermaidShowcasePage> {
   MermaidShowcaseMode _mode = MermaidShowcaseMode.static;
   MermaidTheme _mermaidTheme = MermaidTheme.auto;
+  StreamController<String>? _streamController;
+  bool _isStreaming = false;
 
   String get _content {
     return switch (_mode) {
@@ -48,6 +52,70 @@ class _MermaidShowcasePageState extends State<MermaidShowcasePage> {
         theme: _mermaidTheme,
       ),
     );
+  }
+
+  StreamingOptions get _streamingOptions {
+    return const StreamingOptions(
+      bufferMode: BufferMode.byBlock,
+      showTypingCursor: true,
+      renderIncompleteBlocks: true,
+    );
+  }
+
+  void _setMode(MermaidShowcaseMode mode) {
+    if (_mode == mode) return;
+    _closeStream();
+    setState(() => _mode = mode);
+  }
+
+  void _startStreaming() {
+    _closeStream();
+    final controller = StreamController<String>();
+    setState(() {
+      _streamController = controller;
+      _isStreaming = true;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _runStreamingReplay(controller);
+    });
+  }
+
+  Future<void> _runStreamingReplay(StreamController<String> controller) async {
+    const chunks = [
+      'The assistant is composing a response with a diagram.\n\n```mermaid\nflowchart LR\n  Stream[Streaming chunks] --> Parser\n',
+      '  Parser --> Complete{Fence closed?}\n  Complete -->|yes| Render\n  Complete -->|no| Fallback\n```',
+    ];
+
+    for (final chunk in chunks) {
+      if (!mounted || _streamController != controller || controller.isClosed) {
+        return;
+      }
+      controller.add(chunk);
+      await Future<void>.delayed(const Duration(milliseconds: 80));
+    }
+
+    if (!mounted || _streamController != controller || controller.isClosed) {
+      return;
+    }
+    await controller.close();
+    if (mounted && _streamController == controller) {
+      setState(() => _isStreaming = false);
+    }
+  }
+
+  void _closeStream() {
+    final controller = _streamController;
+    _streamController = null;
+    _isStreaming = false;
+    if (controller != null && !controller.isClosed) {
+      controller.close();
+    }
+  }
+
+  @override
+  void dispose() {
+    _closeStream();
+    super.dispose();
   }
 
   @override
@@ -87,28 +155,60 @@ class _MermaidShowcasePageState extends State<MermaidShowcasePage> {
                   const SizedBox(height: 16),
                   _ModeSelector(
                     value: _mode,
-                    onChanged: (mode) => setState(() => _mode = mode),
+                    onChanged: _setMode,
                   ),
                   const SizedBox(height: 16),
                   _ThemeSelector(
                     value: _mermaidTheme,
                     onChanged: (theme) => setState(() => _mermaidTheme = theme),
                   ),
+                  if (_mode == MermaidShowcaseMode.streaming) ...[
+                    const SizedBox(height: 16),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: FilledButton.icon(
+                        key: const Key('mermaid-showcase-replay'),
+                        onPressed: _isStreaming ? null : _startStreaming,
+                        icon: Icon(
+                          _isStreaming
+                              ? Icons.hourglass_top_rounded
+                              : Icons.replay_rounded,
+                        ),
+                        label: Text(_isStreaming ? 'Streaming' : 'Replay'),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
             const SizedBox(height: 16),
             SurfaceCard(
               padding: const EdgeInsets.all(18),
-              child: MarkdownContent(
-                content: _content,
-                theme: markdownTheme,
-                renderOptions: _renderOptions(renderer),
-              ),
+              child: _buildPreview(renderer, markdownTheme),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildPreview(MermaidRenderer renderer, MarkdownTheme markdownTheme) {
+    if (_mode == MermaidShowcaseMode.streaming && _streamController != null) {
+      return SizedBox(
+        height: 420,
+        child: StreamingMarkdownView.fromStream(
+          stream: _streamController!.stream,
+          theme: markdownTheme,
+          streamingOptions: _streamingOptions,
+          renderOptions: _renderOptions(renderer),
+        ),
+      );
+    }
+
+    return MarkdownContent(
+      content: _content,
+      theme: markdownTheme,
+      renderOptions: _renderOptions(renderer),
     );
   }
 }

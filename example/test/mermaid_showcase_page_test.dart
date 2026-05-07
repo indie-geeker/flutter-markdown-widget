@@ -3,7 +3,7 @@
 // found in the LICENSE file.
 
 import 'package:flutter/material.dart';
-import 'package:flutter_markdown_widget/src/widgets/components/mermaid_view.dart';
+import 'package:flutter_markdown_widget/flutter_markdown_widget.dart';
 import 'package:flutter_markdown_widget/testing.dart';
 import 'package:flutter_markdown_widget_example/data/demo_entries.dart';
 import 'package:flutter_markdown_widget_example/mermaid/mermaid_demo_scope.dart';
@@ -34,6 +34,42 @@ void main() {
 
     expect(find.text('Mermaid Showcase'), findsWidgets);
     expect(find.byType(MermaidView), findsWidgets);
+    expect(renderer.calls, isNotEmpty);
+    expect(
+      renderer.calls.map((call) => call.source),
+      anyElement(contains('flowchart')),
+    );
+  });
+
+  testWidgets('streaming replay waits for the closing Mermaid fence', (
+    tester,
+  ) async {
+    final renderer = FakeMermaidRenderer();
+
+    await tester.pumpWidget(
+      MermaidDemoScope(
+        renderer: renderer,
+        child: const MaterialApp(home: MermaidShowcasePage()),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    renderer.calls.clear();
+
+    await tester.tap(find.text('Streaming'));
+    await tester.pump();
+    await tester.pump();
+    renderer.calls.clear();
+
+    await tester.tap(find.byKey(const Key('mermaid-showcase-replay')));
+    await tester.pump();
+
+    expect(find.byType(StreamingMarkdownView), findsOneWidget);
+    expect(renderer.calls, isEmpty);
+
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.pump();
+
     expect(renderer.calls, isNotEmpty);
     expect(
       renderer.calls.map((call) => call.source),
