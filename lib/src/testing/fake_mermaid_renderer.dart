@@ -35,6 +35,11 @@ class FakeMermaidRenderer implements MermaidRenderer {
   /// Optional source-to-SVG override. Default produces a minimal valid SVG.
   String Function(String source)? svgBuilder;
 
+  /// Optional source-to-PNG override. When set, the artifact returned by
+  /// [render] carries the produced bytes in [MermaidArtifact.rasterPng];
+  /// otherwise `rasterPng` stays null and consumers fall back to the SVG path.
+  Uint8List? Function(String source)? pngBuilder;
+
   /// Recorded calls in order.
   final List<MermaidRenderCall> calls = <MermaidRenderCall>[];
 
@@ -53,7 +58,11 @@ class FakeMermaidRenderer implements MermaidRenderer {
     final svg =
         svgBuilder?.call(source) ??
         '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400"><rect width="800" height="400" fill="#eee"/></svg>';
-    return MermaidArtifact(svg: svg, intrinsicSize: const Size(800, 400));
+    return MermaidArtifact(
+      svg: svg,
+      intrinsicSize: const Size(800, 400),
+      rasterPng: pngBuilder?.call(source),
+    );
   }
 
   @override

@@ -9,13 +9,29 @@ import 'package:flutter/painting.dart';
 @immutable
 class MermaidArtifact {
   /// Creates an artifact with raw SVG payload and an optional intrinsic size.
-  const MermaidArtifact({required this.svg, this.intrinsicSize});
+  const MermaidArtifact({
+    required this.svg,
+    this.intrinsicSize,
+    this.rasterPng,
+  });
 
   /// Raw SVG XML.
+  ///
+  /// Always present. Used by the fullscreen viewer for vector quality and as a
+  /// fallback when [rasterPng] is unavailable.
   final String svg;
 
   /// Intrinsic width/height parsed from the SVG `viewBox`, when available.
   final Size? intrinsicSize;
+
+  /// Browser-rasterized PNG bytes for the diagram, when the renderer was able
+  /// to produce one.
+  ///
+  /// Preferred over [svg] for in-list display because most Flutter SVG
+  /// renderers cannot fully parse Mermaid's output. `null` means the renderer
+  /// did not provide a raster (older renderer or rasterization failed inside
+  /// the WebView); callers should fall back to rendering [svg] directly.
+  final Uint8List? rasterPng;
 
   /// Parses `<svg ... viewBox="x y w h" ...>` and returns `Size(w, h)`.
   ///
@@ -47,8 +63,9 @@ class MermaidArtifact {
       identical(this, other) ||
       other is MermaidArtifact &&
           svg == other.svg &&
-          intrinsicSize == other.intrinsicSize;
+          intrinsicSize == other.intrinsicSize &&
+          listEquals(rasterPng, other.rasterPng);
 
   @override
-  int get hashCode => Object.hash(svg, intrinsicSize);
+  int get hashCode => Object.hash(svg, intrinsicSize, rasterPng?.length);
 }

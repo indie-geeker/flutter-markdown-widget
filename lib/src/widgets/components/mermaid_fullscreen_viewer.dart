@@ -16,6 +16,20 @@ class MermaidFullscreenViewer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final png = artifact.rasterPng;
+    final Widget content = png != null && png.isNotEmpty
+        ? Image.memory(
+            png,
+            key: const Key('mermaid-fullscreen-png'),
+            fit: BoxFit.contain,
+            gaplessPlayback: true,
+            filterQuality: FilterQuality.medium,
+          )
+        : SvgPicture.string(
+            artifact.svg,
+            key: const Key('mermaid-fullscreen-svg'),
+            fit: BoxFit.contain,
+          );
     return Scaffold(
       backgroundColor: Colors.black,
       body: SafeArea(
@@ -25,9 +39,7 @@ class MermaidFullscreenViewer extends StatelessWidget {
               child: InteractiveViewer(
                 minScale: 0.5,
                 maxScale: 8.0,
-                child: Center(
-                  child: SvgPicture.string(artifact.svg, fit: BoxFit.contain),
-                ),
+                child: Center(child: content),
               ),
             ),
             Positioned(

@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown_widget/src/core/mermaid/mermaid_artifact.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -61,6 +63,25 @@ void main() {
       expect(a, equals(b));
       expect(a.hashCode, equals(b.hashCode));
       expect(a, isNot(equals(c)));
+    });
+
+    test('rasterPng defaults to null', () {
+      final artifact = MermaidArtifact(svg: '<svg/>');
+      expect(artifact.rasterPng, isNull);
+    });
+
+    test('equality compares rasterPng byte-for-byte', () {
+      final png1 = Uint8List.fromList(<int>[1, 2, 3]);
+      final png2 = Uint8List.fromList(<int>[1, 2, 3]);
+      final png3 = Uint8List.fromList(<int>[1, 2, 4]);
+      final a = MermaidArtifact(svg: '<svg/>', rasterPng: png1);
+      final b = MermaidArtifact(svg: '<svg/>', rasterPng: png2);
+      final c = MermaidArtifact(svg: '<svg/>', rasterPng: png3);
+      final d = MermaidArtifact(svg: '<svg/>');
+      expect(a, equals(b));
+      expect(a.hashCode, equals(b.hashCode));
+      expect(a, isNot(equals(c)));
+      expect(a, isNot(equals(d)));
     });
   });
 }
