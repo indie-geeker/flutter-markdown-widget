@@ -86,13 +86,42 @@ class MermaidWebViewRenderer implements MermaidRenderer {
   factory MermaidWebViewRenderer.forTesting({
     required MermaidJsLoader loader,
     required MermaidBrowserEngine engine,
+    Widget Function()? hostBuilder,
+  });
+
+  /// Builds the platform WebView widget. Used by [MermaidWebViewHost].
+  Widget buildWidget();
+}
+```
+
+`MermaidWebViewRenderer.shared()` and `withCustomMermaidJs(...)` both return
+`MermaidRenderer`, not the concrete class, so the unsupported-platform stub
+(§3.6) can be returned without exposing it to consumers.
+
+`MermaidWebViewHost` is the second public class:
+
+```dart
+class MermaidWebViewHost extends StatelessWidget {
+  const MermaidWebViewHost({
+    required MermaidRenderer renderer,
+    required Widget child,
+    double hostSize = 1,
   });
 }
 ```
 
+`webview_flutter` requires its `WebViewWidget` to be mounted somewhere in the
+tree (notably on macOS) for JavaScript channels to deliver. `MermaidWebViewHost`
+keeps that view alive in a 1×1 non-interactive slot stacked behind `child`.
+The `renderer` parameter accepts any `MermaidRenderer`; when the value is the
+unsupported-platform stub, the host renders `child` directly and skips the
+WebView slot, so apps can pass `MermaidWebViewRenderer.shared()` everywhere
+without platform branching.
+
 Rationale: `FlutterJsMermaidRenderer` is now misleading and was never released.
 `MermaidWebViewRenderer` names the durable architecture without naming a
-specific plugin. The public barrel exports only `MermaidWebViewRenderer`.
+specific plugin. The public barrel exports `MermaidWebViewRenderer` and
+`MermaidWebViewHost`.
 
 ### 3.2 Internal Backend Boundary
 
@@ -308,7 +337,11 @@ Current completed M2 work that remains valid:
 - Mermaid asset and checksum
 - `MermaidThemeDirective`
 - `MermaidSvgPostprocessor`
-- `MermaidJsLoader` with package/local asset fallback
+- `MermaidJsLoader` with package/local asset fallback (the loader first
+  requests `packages/flutter_markdown_widget_mermaid/assets/mermaid.min.js`,
+  then retries `assets/mermaid.min.js` if the package key is missing — this
+  lets the subpackage's own `example/` integration tests load the asset
+  without the package-prefixed key)
 - `UnsupportedMermaidRenderer`
 - version generator
 - boundary test
